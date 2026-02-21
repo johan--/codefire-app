@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - ProjectSidebarView
 
@@ -58,21 +59,43 @@ struct ProjectSidebarView: View {
 
             Divider()
 
-            // Add client button
-            Button {
-                showingNewClient = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Add Client")
-                        .font(.system(size: 11, weight: .medium))
+            // Bottom actions
+            HStack(spacing: 0) {
+                Button {
+                    openFolderPicker()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Open Folder")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
                 }
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .buttonStyle(.plain)
+
+                Divider()
+                    .frame(height: 16)
+
+                Button {
+                    showingNewClient = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Client")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .frame(width: 200)
         .background(Color(nsColor: .windowBackgroundColor))
@@ -95,6 +118,20 @@ struct ProjectSidebarView: View {
                     expandedClients.insert(client.id)
                 }
             }
+        }
+    }
+
+    // MARK: - Open Folder
+
+    private func openFolderPicker() {
+        let panel = NSOpenPanel()
+        panel.title = "Open Project Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            appState.addProjectFromFolder(url)
         }
     }
 
@@ -196,6 +233,13 @@ struct ProjectSidebarView: View {
                         appState.updateProjectClient(project, clientId: client.id)
                     }
                 }
+            }
+            Button("Show in Finder") {
+                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: project.path)
+            }
+            Divider()
+            Button("Remove Project", role: .destructive) {
+                appState.removeProject(project)
             }
         }
     }

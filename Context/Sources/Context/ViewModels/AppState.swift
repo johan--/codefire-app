@@ -115,6 +115,80 @@ class AppState: ObservableObject {
         }
     }
 
+    func addProjectFromFolder(_ url: URL) {
+        let path = url.path
+        let name = url.lastPathComponent
+
+        // Check if this path is already in the DB
+        do {
+            let exists = try DatabaseService.shared.dbQueue.read { db in
+                try Project.filter(Project.Columns.path == path).fetchCount(db) > 0
+            }
+            if exists {
+                // Already tracked — just select it
+                if let project = projects.first(where: { $0.path == path }) {
+                    selectProject(project)
+                }
+                return
+            }
+        } catch {
+            print("Failed to check existing project: \(error)")
+        }
+
+        // Check if there's a matching ~/.claude/projects/ directory
+        let claudeProjectsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects", isDirectory: true)
+        let encoded = encodePath(path)
+        let claudeDir = claudeProjectsDir.appendingPathComponent(encoded)
+        let claudeProject: String? = FileManager.default.fileExists(atPath: claudeDir.path)
+            ? claudeDir.path : nil
+
+        var project = Project(
+            id: UUID().uuidString,
+            name: name,
+            path: path,
+            claudeProject: claudeProject,
+            lastOpened: Date(),
+            createdAt: Date()
+        )
+        do {
+            try DatabaseService.shared.dbQueue.write { db in
+                try project.insert(db)
+            }
+            loadProjects()
+            selectProject(project)
+        } catch {
+            print("Failed to add project: \(error)")
+        }
+    }
+
+    func removeProject(_ project: Project) {
+        do {
+            _ = try DatabaseService.shared.dbQueue.write { db in
+                try project.delete(db)
+            }
+            if currentProject?.id == project.id {
+                selectHome()
+            }
+            loadProjects()
+        } catch {
+            print("Failed to remove project: \(error)")
+        }
+    }
+
+    /// Encode a filesystem path the same way Claude Code does for ~/.claude/projects/
+    private func encodePath(_ path: String) -> String {
+        var result = ""
+        for ch in path {
+            if ch == "/" || ch == " " || ch == "." || ch == "-" {
+                result.append("-")
+            } else {
+                result.append(ch)
+            }
+        }
+        return result
+    }
+
     func updateProjectClient(_ project: Project, clientId: String?) {
         do {
             try DatabaseService.shared.dbQueue.write { db in
