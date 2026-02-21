@@ -2,14 +2,16 @@ import SwiftUI
 import WebKit
 
 struct WebViewWrapper: NSViewRepresentable {
+    typealias NSViewType = WKWebView
+
     let webView: WKWebView
 
-    func makeNSView(context: Context) -> WKWebView {
+    func makeNSView(context: NSViewRepresentableContext<WebViewWrapper>) -> WKWebView {
         webView.navigationDelegate = context.coordinator
         return webView
     }
 
-    func updateNSView(_ nsView: WKWebView, context: Context) {}
+    func updateNSView(_ nsView: WKWebView, context: NSViewRepresentableContext<WebViewWrapper>) {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
