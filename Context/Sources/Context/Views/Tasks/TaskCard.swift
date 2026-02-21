@@ -123,6 +123,7 @@ struct TaskCardView: View {
         case "claude": return .blue
         case "ai-extracted": return .purple
         case "email": return .green
+        case "browser": return .orange
         default: return .secondary
         }
     }

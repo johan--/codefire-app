@@ -225,6 +225,34 @@ class DatabaseService {
             }
         }
 
+        migrator.registerMigration("v10_seedGlobalProject") { db in
+            // Insert a sentinel project so global tasks (email-created) satisfy the FK constraint
+            let exists = try Bool.fetchOne(db, sql:
+                "SELECT EXISTS(SELECT 1 FROM projects WHERE id = '__global__')"
+            ) ?? false
+            if !exists {
+                try db.execute(
+                    sql: """
+                        INSERT INTO projects (id, name, path, createdAt, sortOrder)
+                        VALUES ('__global__', 'Global', '', ?, -1)
+                        """,
+                    arguments: [Date()]
+                )
+            }
+        }
+
+        migrator.registerMigration("v11_createBrowserScreenshots") { db in
+            try db.create(table: "browserScreenshots") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("projectId", .text).notNull()
+                    .references("projects", onDelete: .cascade)
+                t.column("filePath", .text).notNull()
+                t.column("pageURL", .text)
+                t.column("pageTitle", .text)
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
+
         return migrator
     }
 }

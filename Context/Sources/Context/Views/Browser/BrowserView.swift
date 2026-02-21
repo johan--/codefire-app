@@ -1,10 +1,28 @@
 import SwiftUI
 import WebKit
+import GRDB
 
 struct BrowserView: View {
     @ObservedObject var viewModel: BrowserViewModel
+    @EnvironmentObject var appState: AppState
     @State private var urlText: String = ""
     @FocusState private var isUrlBarFocused: Bool
+
+    // Sheet management
+    enum BrowserSheet: Identifiable {
+        case annotation(NSImage)
+        case captureIssue(NSImage)
+
+        var id: String {
+            switch self {
+            case .annotation: return "annotation"
+            case .captureIssue: return "captureIssue"
+            }
+        }
+    }
+
+    @State private var activeSheet: BrowserSheet?
+    @State private var showConsolePopover = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,6 +67,12 @@ struct BrowserView: View {
                     }
                 }
             }
+
+            // Screenshot gallery strip
+            if let projectId = appState.currentProject?.id {
+                Divider()
+                ScreenshotGalleryStrip(projectId: projectId)
+            }
         }
         .onChange(of: viewModel.activeTabId) { _, _ in
             syncURLBar()
@@ -76,6 +100,33 @@ struct BrowserView: View {
             }
             .frame(width: 0, height: 0)
             .opacity(0)
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .annotation(let img):
+                ScreenshotAnnotationView(
+                    image: img,
+                    onSave: { finalImage in
+                        saveScreenshot(finalImage)
+                        activeSheet = nil
+                    },
+                    onCancel: {
+                        activeSheet = nil
+                    }
+                )
+
+            case .captureIssue(let img):
+                CaptureIssueSheet(
+                    screenshotImage: img,
+                    pageURL: viewModel.activeTab?.currentURL,
+                    pageTitle: viewModel.activeTab?.title,
+                    consoleLogs: viewModel.activeTab?.consoleLogs ?? [],
+                    projectId: appState.currentProject?.id ?? "__global__",
+                    onDismiss: {
+                        activeSheet = nil
+                    }
+                )
+            }
         }
     }
 
@@ -154,7 +205,9 @@ struct BrowserView: View {
 
             // Screenshot
             Button {
-                takeScreenshot()
+                takeScreenshot { image in
+                    activeSheet = .annotation(image)
+                }
             } label: {
                 Image(systemName: "camera")
                     .font(.system(size: 11, weight: .medium))
@@ -164,6 +217,56 @@ struct BrowserView: View {
             .buttonStyle(.plain)
             .disabled(viewModel.activeTab == nil)
             .foregroundColor(viewModel.activeTab != nil ? .primary : .secondary.opacity(0.4))
+
+            // Capture Issue
+            Button {
+                takeScreenshot { image in
+                    activeSheet = .captureIssue(image)
+                }
+            } label: {
+                Image(systemName: "ladybug")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.activeTab == nil)
+            .foregroundColor(viewModel.activeTab != nil ? .primary : .secondary.opacity(0.4))
+            .help("Capture Issue")
+
+            // Console log badge
+            Button {
+                showConsolePopover.toggle()
+            } label: {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
+
+                    if let tab = viewModel.activeTab, !tab.consoleLogs.isEmpty {
+                        let count = tab.consoleLogs.count
+                        Text(count > 99 ? "99+" : "\(count)")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule()
+                                    .fill(tab.errorCount > 0 ? Color.red : (tab.warningCount > 0 ? Color.orange : Color.secondary))
+                            )
+                            .offset(x: 4, y: -2)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.activeTab == nil)
+            .foregroundColor(viewModel.activeTab != nil ? .primary : .secondary.opacity(0.4))
+            .popover(isPresented: $showConsolePopover, arrowEdge: .bottom) {
+                if let tab = viewModel.activeTab {
+                    ConsoleLogPopover(tab: tab)
+                }
+            }
         }
     }
 
@@ -261,36 +364,71 @@ struct BrowserView: View {
         }
     }
 
-    private func takeScreenshot() {
+    private func takeScreenshot(completion: @escaping (NSImage) -> Void) {
         guard let tab = viewModel.activeTab else { return }
 
         let config = WKSnapshotConfiguration()
         tab.webView.takeSnapshot(with: config) { image, error in
-            guard let image = image, error == nil else { return }
-
-            let tiff = image.tiffRepresentation
-            guard let tiffData = tiff,
-                  let bitmap = NSBitmapImageRep(data: tiffData),
-                  let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
-
-            let appSupport = FileManager.default.urls(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask
-            ).first!.appendingPathComponent("Context/browser-screenshots", isDirectory: true)
-
-            try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
-
-            let filename = "screenshot-\(ISO8601DateFormatter().string(from: Date())).png"
-                .replacingOccurrences(of: ":", with: "-")
-            let fileURL = appSupport.appendingPathComponent(filename)
-
-            do {
-                try pngData.write(to: fileURL)
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(fileURL.path, forType: .string)
-            } catch {
-                // Screenshot save failed silently
+            if let error = error {
+                print("BrowserView: snapshot failed: \(error)")
+                return
             }
+            guard let image = image else {
+                print("BrowserView: snapshot returned nil image")
+                return
+            }
+            DispatchQueue.main.async {
+                completion(image)
+            }
+        }
+    }
+
+    private func saveScreenshot(_ image: NSImage) {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            print("BrowserView: failed to convert image to PNG")
+            return
+        }
+
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!.appendingPathComponent("Context/browser-screenshots", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        } catch {
+            print("BrowserView: failed to create screenshots directory: \(error)")
+            return
+        }
+
+        let filename = "screenshot-\(ISO8601DateFormatter().string(from: Date())).png"
+            .replacingOccurrences(of: ":", with: "-")
+        let fileURL = appSupport.appendingPathComponent(filename)
+
+        do {
+            try pngData.write(to: fileURL)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(fileURL.path, forType: .string)
+            print("BrowserView: screenshot saved to \(fileURL.path)")
+
+            // Also save to DB if we have a project context
+            if let projectId = appState.currentProject?.id {
+                var screenshot = BrowserScreenshot(
+                    projectId: projectId,
+                    filePath: fileURL.path,
+                    pageURL: viewModel.activeTab?.currentURL,
+                    pageTitle: viewModel.activeTab?.title,
+                    createdAt: Date()
+                )
+                try DatabaseService.shared.dbQueue.write { db in
+                    try screenshot.insert(db)
+                }
+                NotificationCenter.default.post(name: .screenshotsDidChange, object: nil)
+            }
+        } catch {
+            print("BrowserView: failed to write screenshot: \(error)")
         }
     }
 }
