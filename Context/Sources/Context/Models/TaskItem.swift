@@ -17,6 +17,8 @@ struct TaskItem: Codable, Identifiable, FetchableRecord, MutablePersistableRecor
     var labels: String? // JSON array
     var attachments: String? // JSON array of file paths
     var isGlobal: Bool = false
+    var gmailThreadId: String?
+    var gmailMessageId: String?
 
     static let databaseTableName = "taskItems"
 
@@ -70,7 +72,7 @@ struct TaskItem: Codable, Identifiable, FetchableRecord, MutablePersistableRecor
 
     // MARK: - Labels
 
-    static let predefinedLabels = ["bug", "feature", "refactor", "test", "docs", "performance", "security", "design"]
+    static let predefinedLabels = ["bug", "feature", "refactor", "test", "docs", "performance", "security", "design", "email", "calendar"]
 
     var labelsArray: [String] {
         guard let json = labels,
@@ -133,6 +135,8 @@ struct TaskItem: Codable, Identifiable, FetchableRecord, MutablePersistableRecor
         case "performance": return .orange
         case "security":    return .pink
         case "design":      return .cyan
+        case "email":       return .green
+        case "calendar":    return .indigo
         default:            return .secondary
         }
     }

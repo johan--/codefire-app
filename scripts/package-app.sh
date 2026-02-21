@@ -96,6 +96,17 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
     <true/>
     <key>NSSupportsAutomaticTermination</key>
     <false/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>context-app</string>
+            </array>
+            <key>CFBundleURLName</key>
+            <string>com.context.oauth</string>
+        </dict>
+    </array>
     <key>LSUIElement</key>
     <false/>
 </dict>

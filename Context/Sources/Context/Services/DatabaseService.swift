@@ -179,6 +179,52 @@ class DatabaseService {
             }
         }
 
+        migrator.registerMigration("v9_addGmailIntegration") { db in
+            try db.create(table: "gmailAccounts") { t in
+                t.primaryKey("id", .text)
+                t.column("email", .text).notNull().unique()
+                t.column("lastHistoryId", .text)
+                t.column("isActive", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+                t.column("lastSyncAt", .datetime)
+            }
+
+            try db.create(table: "whitelistRules") { t in
+                t.primaryKey("id", .text)
+                t.column("pattern", .text).notNull()
+                t.column("clientId", .text).references("clients", onDelete: .setNull)
+                t.column("priority", .integer).notNull().defaults(to: 0)
+                t.column("isActive", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+                t.column("note", .text)
+            }
+
+            try db.create(table: "processedEmails") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("gmailMessageId", .text).notNull().unique()
+                t.column("gmailThreadId", .text).notNull()
+                t.column("gmailAccountId", .text).notNull()
+                    .references("gmailAccounts", onDelete: .cascade)
+                t.column("fromAddress", .text).notNull()
+                t.column("fromName", .text)
+                t.column("subject", .text).notNull()
+                t.column("snippet", .text)
+                t.column("body", .text)
+                t.column("receivedAt", .datetime).notNull()
+                t.column("taskId", .integer)
+                    .references("taskItems", onDelete: .setNull)
+                t.column("triageType", .text)
+                t.column("isRead", .boolean).notNull().defaults(to: false)
+                t.column("repliedAt", .datetime)
+                t.column("importedAt", .datetime).notNull()
+            }
+
+            try db.alter(table: "taskItems") { t in
+                t.add(column: "gmailThreadId", .text)
+                t.add(column: "gmailMessageId", .text)
+            }
+        }
+
         return migrator
     }
 }

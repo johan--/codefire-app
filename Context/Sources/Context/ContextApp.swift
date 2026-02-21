@@ -55,12 +55,18 @@ struct ContextApp: App {
     @StateObject private var devEnvironment = DevEnvironment()
     @StateObject private var projectAnalyzer = ProjectAnalyzer()
     @StateObject private var claudeService = ClaudeService()
+    @StateObject private var oauthManager: GoogleOAuthManager
+    @StateObject private var gmailPoller: GmailPoller
 
     init() {
         // Register as a foreground GUI app. Without this, a bare SPM executable
         // isn't recognized by macOS as a real app — it won't become key/foreground,
         // so keyboard events go to whatever app was previously active.
         NSApplication.shared.setActivationPolicy(.regular)
+
+        let oauth = GoogleOAuthManager()
+        _oauthManager = StateObject(wrappedValue: oauth)
+        _gmailPoller = StateObject(wrappedValue: GmailPoller(oauthManager: oauth))
 
         do {
             try DatabaseService.shared.setup()
@@ -78,9 +84,13 @@ struct ContextApp: App {
                 .environmentObject(devEnvironment)
                 .environmentObject(projectAnalyzer)
                 .environmentObject(claudeService)
+                .environmentObject(gmailPoller)
                 .onAppear {
                     NSApplication.shared.activate(ignoringOtherApps: true)
                     appState.loadProjects()
+                    if appSettings.gmailSyncEnabled {
+                        gmailPoller.startPolling(interval: appSettings.gmailSyncInterval)
+                    }
                 }
                 .onChange(of: appState.currentProject) { _, project in
                     if let project = project {

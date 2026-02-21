@@ -98,6 +98,7 @@ struct TaskCardView: View {
         switch task.source {
         case "claude": return .blue
         case "ai-extracted": return .purple
+        case "email": return .green
         default: return .secondary
         }
     }

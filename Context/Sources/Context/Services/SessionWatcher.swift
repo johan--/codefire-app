@@ -6,6 +6,8 @@ extension Notification.Name {
     static let sessionsDidChange = Notification.Name("sessionsDidChange")
     /// Posted when task data has been updated in the database.
     static let tasksDidChange = Notification.Name("tasksDidChange")
+    /// Posted when Gmail sync has completed with new data.
+    static let gmailDidSync = Notification.Name("gmailDidSync")
 }
 
 @MainActor

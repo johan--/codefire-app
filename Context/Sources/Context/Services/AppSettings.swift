@@ -22,6 +22,12 @@ class AppSettings: ObservableObject {
     @Published var scrollbackLines: Int {
         didSet { UserDefaults.standard.set(scrollbackLines, forKey: "scrollbackLines") }
     }
+    @Published var gmailSyncEnabled: Bool {
+        didSet { UserDefaults.standard.set(gmailSyncEnabled, forKey: "gmailSyncEnabled") }
+    }
+    @Published var gmailSyncInterval: Double {
+        didSet { UserDefaults.standard.set(gmailSyncInterval, forKey: "gmailSyncInterval") }
+    }
 
     init() {
         let defaults = UserDefaults.standard
@@ -32,5 +38,7 @@ class AppSettings: ObservableObject {
         self.snapshotDebounce = defaults.object(forKey: "snapshotDebounce") as? Double ?? 30.0
         self.terminalFontSize = defaults.object(forKey: "terminalFontSize") as? Double ?? 13.0
         self.scrollbackLines = defaults.object(forKey: "scrollbackLines") as? Int ?? 10000
+        self.gmailSyncEnabled = defaults.object(forKey: "gmailSyncEnabled") as? Bool ?? false
+        self.gmailSyncInterval = defaults.object(forKey: "gmailSyncInterval") as? Double ?? 300
     }
 }
