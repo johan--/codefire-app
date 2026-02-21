@@ -6,10 +6,14 @@ struct MainSplitView: View {
 
     var body: some View {
         HSplitView {
+            ProjectSidebarView()
+                .frame(minWidth: 160, maxWidth: 240)
+
             TerminalTabView(projectPath: $projectPath)
-                .frame(minWidth: 400, idealWidth: 700)
+                .frame(minWidth: 400, idealWidth: 600)
+
             GUIPanelView()
-                .frame(minWidth: 400, idealWidth: 700)
+                .frame(minWidth: 400, idealWidth: 600)
         }
         .onChange(of: appState.currentProject) { _, project in
             if let project = project {

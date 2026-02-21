@@ -83,41 +83,73 @@ struct GUIPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Project header
-            projectHeader
+            if appState.isHomeView {
+                // Home view header
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor.gradient)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Image(systemName: "house.fill")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                        )
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Planner")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Global tasks & notes")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    MCPIndicator(connections: mcpMonitor.connections, currentProjectId: nil)
+                }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(Color(nsColor: .windowBackgroundColor).opacity(0.6))
 
-            Divider()
+                Divider()
 
-            // Tab bar
-            tabBar
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                // Home content
+                HomeView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Project header (simplified — no dropdown picker)
+                projectHeader
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(nsColor: .windowBackgroundColor).opacity(0.6))
 
-            Divider()
+                Divider()
 
-            // Tab content
-            Group {
-                switch appState.selectedTab {
-                case .dashboard:
-                    DashboardView()
-                case .sessions:
-                    SessionListView()
-                case .tasks:
-                    KanbanBoard()
-                case .notes:
-                    NoteListView()
-                case .memory:
-                    MemoryEditorView()
-                case .rules:
-                    ClaudeMdEditorView()
-                case .visualize:
-                    VisualizerView()
+                // Tab bar
+                tabBar
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+
+                Divider()
+
+                // Tab content
+                Group {
+                    switch appState.selectedTab {
+                    case .dashboard:
+                        DashboardView()
+                    case .sessions:
+                        SessionListView()
+                    case .tasks:
+                        KanbanBoard()
+                    case .notes:
+                        NoteListView()
+                    case .memory:
+                        MemoryEditorView()
+                    case .rules:
+                        ClaudeMdEditorView()
+                    case .visualize:
+                        VisualizerView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .underPageBackgroundColor))
         .onAppear { mcpMonitor.startPolling() }
@@ -129,7 +161,6 @@ struct GUIPanelView: View {
     private var projectHeader: some View {
         HStack(spacing: 10) {
             if let project = appState.currentProject {
-                // Project icon
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.accentColor.gradient)
                     .frame(width: 28, height: 28)
@@ -148,40 +179,11 @@ struct GUIPanelView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-            } else {
-                Image(systemName: "questionmark.folder")
-                    .font(.system(size: 16))
-                    .foregroundColor(.secondary)
-                Text("No project selected")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
             }
 
             Spacer()
 
-            // MCP connection indicator
             MCPIndicator(connections: mcpMonitor.connections, currentProjectId: appState.currentProject?.id)
-
-            // Project picker
-            Menu {
-                ForEach(appState.projects) { project in
-                    Button {
-                        appState.selectProject(project)
-                    } label: {
-                        Label(project.name, systemImage: "folder")
-                    }
-                }
-            } label: {
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(6)
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
         }
     }
 
