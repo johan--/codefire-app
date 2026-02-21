@@ -81,6 +81,7 @@ struct GUIPanelView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var mcpMonitor = MCPConnectionMonitor()
     @StateObject private var browserViewModel = BrowserViewModel()
+    @State private var showChatDrawer = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -107,6 +108,7 @@ struct GUIPanelView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
+                        chatButton
                         MCPIndicator(connections: mcpMonitor.connections, currentProjectId: nil)
                     }
                     .padding(.horizontal, 16)
@@ -168,6 +170,24 @@ struct GUIPanelView: View {
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .trailing) {
+            if showChatDrawer {
+                HStack(spacing: 0) {
+                    // Backdrop
+                    Color.black.opacity(0.15)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showChatDrawer = false
+                            }
+                        }
+
+                    // Drawer
+                    ChatDrawerView(isOpen: $showChatDrawer)
+                        .transition(.move(edge: .trailing))
+                }
+            }
+        }
         .onAppear { mcpMonitor.startPolling() }
         .onDisappear { mcpMonitor.stopPolling() }
     }
@@ -199,8 +219,31 @@ struct GUIPanelView: View {
 
             Spacer()
 
+            chatButton
             MCPIndicator(connections: mcpMonitor.connections, currentProjectId: appState.currentProject?.id)
         }
+    }
+
+    // MARK: - Chat Button
+
+    private var chatButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showChatDrawer.toggle()
+            }
+        } label: {
+            Image(systemName: showChatDrawer ? "bubble.right.fill" : "bubble.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(showChatDrawer ? .accentColor : .secondary)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(showChatDrawer ? Color.accentColor.opacity(0.12) : Color.clear)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Chat")
     }
 
     // MARK: - Tab Bar

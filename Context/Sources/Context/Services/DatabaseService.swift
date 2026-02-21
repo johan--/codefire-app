@@ -253,6 +253,25 @@ class DatabaseService {
             }
         }
 
+        migrator.registerMigration("v12_createChatTables") { db in
+            try db.create(table: "chatConversations") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("projectId", .text) // nullable — null means global
+                t.column("title", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(table: "chatMessages") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("conversationId", .integer).notNull()
+                    .references("chatConversations", onDelete: .cascade)
+                t.column("role", .text).notNull()
+                t.column("content", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
+
         return migrator
     }
 }

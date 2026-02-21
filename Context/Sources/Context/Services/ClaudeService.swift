@@ -126,6 +126,48 @@ class ClaudeService: ObservableObject {
         return await generate(prompt: prompt)
     }
 
+    // MARK: - Chat
+
+    /// Multi-turn chat with assembled project context.
+    /// Sends context + conversation history to Claude via CLI.
+    func chat(
+        messages: [(role: String, content: String)],
+        context: String
+    ) async -> String? {
+        var prompt = "<context>\n\(context)\n</context>\n\n"
+
+        // Include conversation history (cap at ~25K chars)
+        var historyChars = 0
+        let maxHistory = 25_000
+        var historyLines: [String] = []
+
+        for msg in messages {
+            let line: String
+            if msg.role == "user" {
+                line = "User: \(msg.content)"
+            } else {
+                line = "Assistant: \(msg.content)"
+            }
+            if historyChars + line.count > maxHistory { break }
+            historyLines.append(line)
+            historyChars += line.count
+        }
+
+        if historyLines.count > 1 {
+            prompt += "Conversation so far:\n"
+            for line in historyLines.dropLast() {
+                prompt += line + "\n\n"
+            }
+            prompt += "\nLatest message:\n\(historyLines.last ?? "")\n"
+        } else if let last = historyLines.last {
+            prompt += last + "\n"
+        }
+
+        prompt += "\nRespond helpfully and concisely. Reference specific tasks, sessions, files, or notes when relevant. Use markdown formatting."
+
+        return await generate(prompt: prompt)
+    }
+
     // MARK: - Extract Tasks from Session
 
     /// Read a session's JSONL conversation and extract actionable tasks using AI.

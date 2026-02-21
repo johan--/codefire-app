@@ -115,6 +115,11 @@ struct TerminalTabView: View {
                   let command = info["command"] as? String else { return }
             launchTask(title: title, command: command)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .pasteToTerminal)) { notification in
+            guard let text = notification.userInfo?["text"] as? String else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
     }
 
     // MARK: - Tab actions
