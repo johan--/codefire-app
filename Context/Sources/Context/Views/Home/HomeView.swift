@@ -21,6 +21,7 @@ struct HomeView: View {
 
 struct ProjectTaskSummary: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     struct ProjectTaskCount: Identifiable {
         let id: String // project ID
@@ -85,10 +86,7 @@ struct ProjectTaskSummary: View {
     @ViewBuilder
     private func projectTaskRow(_ pt: ProjectTaskCount) -> some View {
         Button {
-            if let project = appState.projects.first(where: { $0.id == pt.id }) {
-                appState.selectedTab = .tasks
-                appState.selectProject(project)
-            }
+            openWindow(value: pt.id)
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "folder.fill")
