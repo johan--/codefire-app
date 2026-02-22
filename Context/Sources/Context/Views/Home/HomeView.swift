@@ -28,6 +28,9 @@ struct ProjectTaskSummary: View {
         let name: String
         let todoCount: Int
         let inProgressCount: Int
+        let tag: String?
+        let clientName: String?
+        let clientColor: String?
     }
 
     @State private var projectTasks: [ProjectTaskCount] = []
@@ -105,6 +108,32 @@ struct ProjectTaskSummary: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
+                if let clientName = pt.clientName {
+                    Text(clientName)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule()
+                                .fill(Color(hex: pt.clientColor ?? "") ?? Color.secondary)
+                        )
+                        .lineLimit(1)
+                }
+
+                if let tag = pt.tag, !tag.isEmpty {
+                    Text(tag)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule()
+                                .fill(Color.secondary.opacity(0.12))
+                        )
+                        .lineLimit(1)
+                }
+
                 Spacer()
 
                 if pt.inProgressCount > 0 {
@@ -145,21 +174,33 @@ struct ProjectTaskSummary: View {
         do {
             let results = try DatabaseService.shared.dbQueue.read { db -> [ProjectTaskCount] in
                 let rows = try Row.fetchAll(db, sql: """
-                    SELECT p.id, p.name,
+                    SELECT p.id, p.name, p.tags, c.name as clientName, c.color as clientColor,
                         SUM(CASE WHEN t.status = 'todo' THEN 1 ELSE 0 END) as todoCount,
                         SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as inProgressCount
                     FROM taskItems t
                     JOIN projects p ON p.id = t.projectId
+                    LEFT JOIN clients c ON c.id = p.clientId
                     WHERE t.status != 'done' AND t.projectId != '__global__'
                     GROUP BY p.id
                     ORDER BY (todoCount + inProgressCount) DESC, p.name ASC
                     """)
                 return rows.map { row in
-                    ProjectTaskCount(
+                    let tagsJSON: String? = row["tags"]
+                    var firstTag: String?
+                    if let json = tagsJSON,
+                       let data = json.data(using: .utf8),
+                       let array = try? JSONDecoder().decode([String].self, from: data),
+                       let first = array.first {
+                        firstTag = first
+                    }
+                    return ProjectTaskCount(
                         id: row["id"],
                         name: row["name"],
                         todoCount: row["todoCount"],
-                        inProgressCount: row["inProgressCount"]
+                        inProgressCount: row["inProgressCount"],
+                        tag: firstTag,
+                        clientName: row["clientName"],
+                        clientColor: row["clientColor"]
                     )
                 }
             }
