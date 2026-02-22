@@ -87,6 +87,21 @@ struct Client: Codable, FetchableRecord, MutablePersistableRecord {
     static let databaseTableName = "clients"
 }
 
+struct BrowserCommand: Codable, FetchableRecord, MutablePersistableRecord {
+    var id: Int64?
+    var tool: String
+    var args: String?
+    var status: String
+    var result: String?
+    var createdAt: Date
+    var completedAt: Date?
+    static let databaseTableName = "browserCommands"
+
+    mutating func didInsert(_ inserted: InsertionSuccess) {
+        id = inserted.rowID
+    }
+}
+
 // MARK: - MCP Protocol Types
 
 struct MCPError: Error {
@@ -1076,6 +1091,75 @@ class MCPServer {
         }
 
         return "Created client '\(name)' with ID \(client.id)"
+    }
+
+    // MARK: - Browser Command Execution
+
+    func executeBrowserCommand(tool: String, args: [String: Any] = [:], timeout: TimeInterval = 5.0) throws -> String {
+        let argsJSON: String?
+        if args.isEmpty {
+            argsJSON = nil
+        } else if let data = try? JSONSerialization.data(withJSONObject: args),
+                  let str = String(data: data, encoding: .utf8) {
+            argsJSON = str
+        } else {
+            argsJSON = nil
+        }
+
+        var command = BrowserCommand(
+            id: nil,
+            tool: tool,
+            args: argsJSON,
+            status: "pending",
+            result: nil,
+            createdAt: Date(),
+            completedAt: nil
+        )
+
+        try db.write { db in
+            try command.insert(db)
+        }
+
+        guard let commandId = command.id else {
+            throw MCPError(message: "Failed to insert browser command")
+        }
+
+        let startTime = Date()
+        while Date().timeIntervalSince(startTime) < timeout {
+            Thread.sleep(forTimeInterval: 0.05) // 50ms polling
+
+            let updated = try db.read { db in
+                try BrowserCommand.fetchOne(db, key: commandId)
+            }
+
+            guard let cmd = updated else {
+                throw MCPError(message: "Browser command \(commandId) disappeared")
+            }
+
+            switch cmd.status {
+            case "completed":
+                // Clean up
+                _ = try? db.write { db in
+                    try BrowserCommand.deleteOne(db, key: commandId)
+                }
+                return cmd.result ?? "{}"
+
+            case "error":
+                _ = try? db.write { db in
+                    try BrowserCommand.deleteOne(db, key: commandId)
+                }
+                throw MCPError(message: cmd.result ?? "Browser command failed")
+
+            default:
+                continue
+            }
+        }
+
+        // Timeout — clean up and report
+        _ = try? db.write { db in
+            try BrowserCommand.deleteOne(db, key: commandId)
+        }
+        throw MCPError(message: "Browser command timed out after \(Int(timeout))s. Is Context.app running with the browser tab visible?")
     }
 
     // MARK: - JSON-RPC Helpers
