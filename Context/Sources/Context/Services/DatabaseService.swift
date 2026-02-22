@@ -278,6 +278,18 @@ class DatabaseService {
             }
         }
 
+        migrator.registerMigration("v14_createBrowserCommands") { db in
+            try db.create(table: "browserCommands") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("tool", .text).notNull()
+                t.column("args", .text)
+                t.column("status", .text).notNull().defaults(to: "pending")
+                t.column("result", .text)
+                t.column("createdAt", .datetime).notNull()
+                t.column("completedAt", .datetime)
+            }
+        }
+
         return migrator
     }
 }
