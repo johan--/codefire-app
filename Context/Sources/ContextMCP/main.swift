@@ -14,7 +14,24 @@ func openDatabase() throws -> DatabaseQueue {
     guard FileManager.default.fileExists(atPath: dbPath) else {
         throw MCPError(message: "Context database not found at \(dbPath). Launch Context.app first.")
     }
-    return try DatabaseQueue(path: dbPath)
+    let db = try DatabaseQueue(path: dbPath)
+
+    // Ensure browserCommands table exists (may not if GUI app hasn't launched since update)
+    try db.write { conn in
+        try conn.execute(sql: """
+            CREATE TABLE IF NOT EXISTS browserCommands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tool TEXT NOT NULL,
+                args TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                result TEXT,
+                createdAt DATETIME NOT NULL,
+                completedAt DATETIME
+            )
+        """)
+    }
+
+    return db
 }
 
 // MARK: - Models (lightweight copies)
@@ -104,8 +121,9 @@ struct BrowserCommand: Codable, FetchableRecord, MutablePersistableRecord {
 
 // MARK: - MCP Protocol Types
 
-struct MCPError: Error {
+struct MCPError: LocalizedError {
     let message: String
+    var errorDescription: String? { message }
 }
 
 struct JSONRPCRequest: Decodable {
