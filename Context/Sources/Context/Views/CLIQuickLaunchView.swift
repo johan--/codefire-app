@@ -8,15 +8,28 @@ struct CLIQuickLaunchView: View {
     let onLaunchCLI: (_ title: String, _ command: String) -> Void
 
     @State private var setupResult: String?
-    @State private var showingToast = false
+    @State private var installCacheLoaded = false
 
     private let injector = ContextInjector()
 
     var body: some View {
         HStack(spacing: 2) {
+            let _ = installCacheLoaded  // force re-evaluation after cache loads
             ForEach(CLIProvider.allCases) { cli in
                 cliMenu(for: cli)
             }
+        }
+        .task {
+            await CLIProvider.refreshInstallationStatus()
+            installCacheLoaded = true
+        }
+        .alert("Setup", isPresented: Binding(
+            get: { setupResult != nil },
+            set: { if !$0 { setupResult = nil } }
+        )) {
+            Button("OK") { setupResult = nil }
+        } message: {
+            Text(setupResult ?? "")
         }
     }
 

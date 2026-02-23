@@ -179,21 +179,21 @@ class ContextInjector {
 
         switch cli {
         case .claude:
-            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
+            try installJSONMCP(at: configPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
         case .gemini:
-            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
+            try installJSONMCP(at: configPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
         case .codex:
             try installCodexMCP(at: configPath, binaryPath: binaryPath)
         case .opencode:
             let entry: [String: Any] = ["type": "local", "command": [binaryPath]]
-            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcp", serverEntry: entry)
+            try installJSONMCP(at: configPath, topKey: "mcp", serverEntry: entry)
         }
 
         return configPath
     }
 
     /// Install MCP config into a JSON file. Merges with existing content.
-    private func installJSONMCP(at path: String, binaryPath: String, topKey: String, serverEntry: Any) throws {
+    private func installJSONMCP(at path: String, topKey: String, serverEntry: Any) throws {
         // Ensure parent directory exists
         let dir = (path as NSString).deletingLastPathComponent
         try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)

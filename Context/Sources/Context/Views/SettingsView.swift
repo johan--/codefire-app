@@ -6,7 +6,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            GeneralSettingsTab()
+            GeneralSettingsTab(settings: settings)
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
@@ -33,12 +33,12 @@ struct SettingsView: View {
 // MARK: - General Tab
 
 private struct GeneralSettingsTab: View {
-    @EnvironmentObject var appSettings: AppSettings
+    @ObservedObject var settings: AppSettings
 
     var body: some View {
         Form {
             Section("Preferred CLI") {
-                Picker("Default coding CLI", selection: $appSettings.preferredCLI) {
+                Picker("Default coding CLI", selection: $settings.preferredCLI) {
                     ForEach(CLIProvider.allCases) { cli in
                         HStack(spacing: 8) {
                             Image(systemName: cli.iconName)
