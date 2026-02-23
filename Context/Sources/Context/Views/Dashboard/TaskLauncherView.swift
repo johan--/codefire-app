@@ -6,6 +6,7 @@ import SwiftUI
 /// prompt field. Each launch creates a new terminal tab via `.launchTask` notification.
 struct TaskLauncherView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var appSettings: AppSettings
     @State private var customPrompt: String = ""
     @State private var isExpanded: Bool = true
 
@@ -96,7 +97,7 @@ struct TaskLauncherView: View {
     private func launchPreset(_ preset: TaskPreset) {
         let prompt = preset.prompt(for: appState.currentProject)
         let escaped = prompt.replacingOccurrences(of: "\"", with: "\\\"")
-        let command = "claude \"\(escaped)\""
+        let command = "\(appSettings.preferredCLI.command) \"\(escaped)\""
 
         NotificationCenter.default.post(
             name: .launchTask,
@@ -110,7 +111,7 @@ struct TaskLauncherView: View {
         guard !trimmed.isEmpty else { return }
 
         let escaped = trimmed.replacingOccurrences(of: "\"", with: "\\\"")
-        let command = "claude \"\(escaped)\""
+        let command = "\(appSettings.preferredCLI.command) \"\(escaped)\""
         let shortTitle = String(trimmed.prefix(20)) + (trimmed.count > 20 ? "..." : "")
 
         NotificationCenter.default.post(
