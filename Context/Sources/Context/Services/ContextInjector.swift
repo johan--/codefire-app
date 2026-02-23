@@ -147,6 +147,155 @@ class ContextInjector {
         try data.write(to: configPath, options: .atomic)
     }
 
+    // MARK: - Per-CLI MCP Installation
+
+    /// The deployed ContextMCP binary path.
+    static var mcpBinaryPath: String {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first!
+        return appSupport
+            .appendingPathComponent("Context/bin/ContextMCP")
+            .path
+    }
+
+    /// Install MCP config for a specific CLI provider.
+    /// Merge-safe: parses existing config and only adds/updates the context-tasks entry.
+    /// Returns the path where the config was written.
+    func installMCP(for cli: CLIProvider, projectPath: String) throws -> String {
+        let binaryPath = Self.mcpBinaryPath
+        guard fileManager.fileExists(atPath: binaryPath) else {
+            throw InjectorError.fileOperationFailed("ContextMCP binary not found at \(binaryPath)")
+        }
+
+        let configPath: String
+        switch cli.mcpConfigScope {
+        case .projectRoot(let filename):
+            guard !projectPath.isEmpty else { throw InjectorError.projectPathMissing }
+            configPath = (projectPath as NSString).appendingPathComponent(filename)
+        case .userHome(let relativePath):
+            configPath = (NSHomeDirectory() as NSString).appendingPathComponent(relativePath)
+        }
+
+        switch cli {
+        case .claude:
+            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
+        case .gemini:
+            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcpServers", serverEntry: ["command": binaryPath])
+        case .codex:
+            try installCodexMCP(at: configPath, binaryPath: binaryPath)
+        case .opencode:
+            let entry: [String: Any] = ["type": "local", "command": [binaryPath]]
+            try installJSONMCP(at: configPath, binaryPath: binaryPath, topKey: "mcp", serverEntry: entry)
+        }
+
+        return configPath
+    }
+
+    /// Install MCP config into a JSON file. Merges with existing content.
+    private func installJSONMCP(at path: String, binaryPath: String, topKey: String, serverEntry: Any) throws {
+        // Ensure parent directory exists
+        let dir = (path as NSString).deletingLastPathComponent
+        try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+
+        var config = readJSONDict(at: path)
+        var servers = config[topKey] as? [String: Any] ?? [:]
+        servers["context-tasks"] = serverEntry
+        config[topKey] = servers
+        try writeJSON(config, to: path)
+    }
+
+    /// Install MCP config into Codex's TOML config file. Merge-safe.
+    private func installCodexMCP(at path: String, binaryPath: String) throws {
+        let dir = (path as NSString).deletingLastPathComponent
+        try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+
+        let escapedPath = binaryPath
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        let section = """
+
+        [mcp_servers.context-tasks]
+        command = "\(escapedPath)"
+        args = []
+        """
+
+        if fileManager.fileExists(atPath: path) {
+            var content = try String(contentsOfFile: path, encoding: .utf8)
+            // Remove existing context-tasks section if present
+            let pattern = #"\[mcp_servers\.context-tasks\][^\[]*"#
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) {
+                content = regex.stringByReplacingMatches(
+                    in: content,
+                    range: NSRange(content.startIndex..., in: content),
+                    withTemplate: ""
+                )
+            }
+            content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            content += "\n" + section + "\n"
+            try content.write(toFile: path, atomically: true, encoding: .utf8)
+        } else {
+            try (section.trimmingCharacters(in: .newlines) + "\n")
+                .write(toFile: path, atomically: true, encoding: .utf8)
+        }
+    }
+
+    // MARK: - JSON Helpers
+
+    private func readJSONDict(at path: String) -> [String: Any] {
+        guard fileManager.fileExists(atPath: path),
+              let data = fileManager.contents(atPath: path),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return [:]
+        }
+        return json
+    }
+
+    private func writeJSON(_ dict: [String: Any], to path: String) throws {
+        let data = try JSONSerialization.data(
+            withJSONObject: dict,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+    }
+
+    // MARK: - Per-CLI Instruction File Management
+
+    /// Write the Context.app managed section to the appropriate instruction file for this CLI.
+    func updateInstructionFile(for cli: CLIProvider, projectPath: String) throws {
+        guard !projectPath.isEmpty else { throw InjectorError.projectPathMissing }
+
+        let filePath = (projectPath as NSString)
+            .appendingPathComponent(cli.instructionFileName)
+        let section = buildManagedSection()
+
+        if fileManager.fileExists(atPath: filePath) {
+            var content = try String(contentsOfFile: filePath, encoding: .utf8)
+            if let range = findManagedSectionRange(in: content) {
+                content.replaceSubrange(range, with: section)
+            } else {
+                if !content.hasSuffix("\n") { content += "\n" }
+                content += "\n" + section + "\n"
+            }
+            try content.write(toFile: filePath, atomically: true, encoding: .utf8)
+        } else {
+            try (section + "\n").write(toFile: filePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// Check if the managed section exists in this CLI's instruction file.
+    func hasInstructionFile(for cli: CLIProvider, projectPath: String) -> Bool {
+        guard !projectPath.isEmpty else { return false }
+        let filePath = (projectPath as NSString)
+            .appendingPathComponent(cli.instructionFileName)
+        guard fileManager.fileExists(atPath: filePath),
+              let content = try? String(contentsOfFile: filePath, encoding: .utf8)
+        else { return false }
+        return findManagedSectionRange(in: content) != nil
+    }
+
     // MARK: - Helpers
 
     /// Build the full managed section string including markers.
