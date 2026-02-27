@@ -168,6 +168,8 @@ struct GUIPanelView: View {
                                 ProjectServicesView()
                             case .git:
                                 GitChangesView()
+                            case .images:
+                                ImageStudioView()
                             case .visualize:
                                 VisualizerView()
                             case .browser:
