@@ -2149,29 +2149,63 @@ class MCPServer {
 
         guard let choices = json["choices"] as? [[String: Any]],
               let firstChoice = choices.first,
-              let message = firstChoice["message"] as? [String: Any],
-              let content = message["content"] as? [[String: Any]] else {
+              let msg = firstChoice["message"] as? [String: Any] else {
             throw MCPError(message: "Unexpected response format from OpenRouter")
+        }
+
+        // Check for refusal
+        if let refusal = msg["refusal"] as? String, !refusal.isEmpty {
+            throw MCPError(message: "Model refused: \(refusal)")
         }
 
         var imageData: Data?
         var responseText: String?
 
-        for part in content {
-            guard let type = part["type"] as? String else { continue }
-            if type == "image_url",
-               let imageUrl = part["image_url"] as? [String: Any],
-               let urlString = imageUrl["url"] as? String,
-               let commaIndex = urlString.firstIndex(of: ",") {
-                let base64String = String(urlString[urlString.index(after: commaIndex)...])
-                imageData = Data(base64Encoded: base64String)
-            } else if type == "text", let text = part["text"] as? String {
-                responseText = text
+        // Extract text from content
+        if let str = msg["content"] as? String, !str.isEmpty {
+            responseText = str
+        } else if let arr = msg["content"] as? [[String: Any]] {
+            for part in arr {
+                if part["type"] as? String == "text", let text = part["text"] as? String, !text.isEmpty {
+                    responseText = text
+                }
+            }
+        }
+
+        // Primary: images in message.images[] (OpenRouter's actual format)
+        if let images = msg["images"] as? [[String: Any]] {
+            for img in images {
+                if let imageUrl = img["image_url"] as? [String: Any],
+                   let urlString = imageUrl["url"] as? String,
+                   let commaIndex = urlString.firstIndex(of: ",") {
+                    let base64String = String(urlString[urlString.index(after: commaIndex)...])
+                    imageData = Data(base64Encoded: base64String)
+                    if imageData != nil { break }
+                }
+            }
+        }
+
+        // Fallback: content array with image_url parts
+        if imageData == nil, let arr = msg["content"] as? [[String: Any]] {
+            for part in arr {
+                if part["type"] as? String == "image_url",
+                   let imageUrl = part["image_url"] as? [String: Any],
+                   let urlString = imageUrl["url"] as? String,
+                   let commaIndex = urlString.firstIndex(of: ",") {
+                    let base64String = String(urlString[urlString.index(after: commaIndex)...])
+                    imageData = Data(base64Encoded: base64String)
+                    if imageData != nil { break }
+                }
             }
         }
 
         guard let finalImageData = imageData, !finalImageData.isEmpty else {
-            throw MCPError(message: "No image in API response")
+            let finishReason = firstChoice["native_finish_reason"] as? String
+                ?? firstChoice["finish_reason"] as? String ?? "unknown"
+            if finishReason.lowercased().contains("safety") || finishReason.lowercased().contains("block") {
+                throw MCPError(message: "Image blocked by safety filter. Try a different prompt.")
+            }
+            throw MCPError(message: "No image generated. The model may have declined this prompt. Try rephrasing.")
         }
 
         return (finalImageData, responseText)
