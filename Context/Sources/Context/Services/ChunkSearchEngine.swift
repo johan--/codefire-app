@@ -11,20 +11,17 @@ struct ChunkSearchEngine {
         let lines: String?         // "245-280"
         let score: Float
         let content: String
+        let moreInFile: Int        // count of additional matches from same file (0 if none)
     }
 
     /// Search for chunks matching a query using hybrid ranking.
-    /// - Parameters:
-    ///   - queryVector: The embedded query (1536-dim Float array)
-    ///   - projectId: Project to search within
-    ///   - query: Original query text for FTS5 keyword search
-    ///   - limit: Max results (default 10, max 30)
-    ///   - types: Optional filter by chunk type
-    ///   - db: Database queue to read from
     static func search(
         queryVector: [Float],
         projectId: String,
         query: String,
+        ftsTerms: [String]? = nil,    // expanded terms for FTS (from QueryPreprocessor)
+        semanticWeight: Float = 0.70,
+        keywordWeight: Float = 0.30,
         limit: Int = 10,
         types: [String]? = nil,
         db: DatabaseQueue
@@ -39,18 +36,21 @@ struct ChunkSearchEngine {
             db: db
         )
 
-        // 2. Keyword search — FTS5 match
+        // 2. Keyword search — FTS5 match with optional expanded terms
         let keywordResults = try keywordSearch(
             query: query,
+            expandedTerms: ftsTerms,
             projectId: projectId,
             types: types,
             db: db
         )
 
-        // 3. Merge and rank
+        // 3. Merge, score, and rank
         return mergeResults(
             semantic: semanticResults,
             keyword: keywordResults,
+            semanticWeight: semanticWeight,
+            keywordWeight: keywordWeight,
             limit: effectiveLimit
         )
     }
@@ -69,7 +69,6 @@ struct ChunkSearchEngine {
         types: [String]?,
         db: DatabaseQueue
     ) throws -> [ScoredChunk] {
-        // Load all chunks with embeddings for this project
         let chunks: [(CodeChunk, String)] = try db.read { conn in
             var sql = """
                 SELECT c.*, f.relativePath
@@ -93,37 +92,46 @@ struct ChunkSearchEngine {
             }
         }
 
-        // Compute cosine similarity for each
         var scored: [ScoredChunk] = []
         for (chunk, path) in chunks {
             guard let vector = chunk.embeddingVector else { continue }
             let sim = cosineSimilarity(queryVector, vector)
-            if sim > 0.3 {  // Minimum threshold
+            // Use a low floor here; dynamic threshold applied later in merge
+            if sim > 0.15 {
                 scored.append(ScoredChunk(chunk: chunk, file: path, score: sim))
             }
         }
 
         scored.sort { $0.score > $1.score }
-        return Array(scored.prefix(50))  // Keep top 50 for merging
+        return Array(scored.prefix(50))
     }
 
     // MARK: - Keyword Search
 
     private static func keywordSearch(
         query: String,
+        expandedTerms: [String]?,
         projectId: String,
         types: [String]?,
         db: DatabaseQueue
     ) throws -> [ScoredChunk] {
         return try db.read { conn in
-            // FTS5 match query — escape special characters
-            let ftsQuery = query
+            // Build FTS query: original terms OR'd together
+            var allTerms = query
                 .replacingOccurrences(of: "\"", with: "\"\"")
                 .components(separatedBy: .whitespaces)
                 .filter { !$0.isEmpty }
                 .map { "\"\($0)\"" }
-                .joined(separator: " OR ")
 
+            // Add expanded synonym terms
+            if let expanded = expandedTerms {
+                for term in expanded {
+                    let escaped = term.replacingOccurrences(of: "\"", with: "\"\"")
+                    allTerms.append("\"\(escaped)\"")
+                }
+            }
+
+            let ftsQuery = allTerms.joined(separator: " OR ")
             guard !ftsQuery.isEmpty else { return [] }
 
             var sql = """
@@ -145,7 +153,6 @@ struct ChunkSearchEngine {
 
             let rows = try Row.fetchAll(conn, sql: sql, arguments: StatementArguments(args))
 
-            // Normalize BM25 scores to 0-1 range
             let ranks = rows.compactMap { $0["rank"] as? Double }
             let maxRank = ranks.map { abs($0) }.max() ?? 1.0
 
@@ -164,9 +171,11 @@ struct ChunkSearchEngine {
     private static func mergeResults(
         semantic: [ScoredChunk],
         keyword: [ScoredChunk],
+        semanticWeight: Float,
+        keywordWeight: Float,
         limit: Int
     ) -> [SearchResult] {
-        // Combine scores: 70% semantic, 30% keyword
+        // Combine scores with adaptive weights
         var combined: [String: (chunk: ScoredChunk, semanticScore: Float, keywordScore: Float)] = [:]
 
         for s in semantic {
@@ -182,31 +191,129 @@ struct ChunkSearchEngine {
             }
         }
 
-        let ranked = combined.values
-            .map { entry -> (ScoredChunk, Float) in
-                let final = (0.7 * entry.semanticScore) + (0.3 * entry.keywordScore)
-                return (entry.chunk, final)
-            }
-            .sorted { $0.1 > $1.1 }
-            .prefix(limit)
+        // Score with adaptive weights + importance multiplier
+        var scored = combined.values.map { entry -> (ScoredChunk, Float) in
+            let baseScore = (semanticWeight * entry.semanticScore) + (keywordWeight * entry.keywordScore)
+            let importance = chunkImportance(entry.chunk)
+            return (entry.chunk, baseScore * importance)
+        }
 
-        return ranked.map { (scored, finalScore) in
+        scored.sort { $0.1 > $1.1 }
+
+        // Dynamic threshold: mean of top 5 minus 1 stddev, floor at 0.05
+        let threshold = dynamicThreshold(scores: scored.map { $0.1 })
+        scored = scored.filter { $0.1 >= threshold }
+
+        // Consolidate: limit per-file results, track extras
+        return consolidateResults(scored: scored, limit: limit)
+    }
+
+    // MARK: - Chunk Importance
+
+    /// Multiplier based on chunk type and file path heuristics.
+    private static func chunkImportance(_ scored: ScoredChunk) -> Float {
+        var multiplier: Float = 1.0
+
+        // Type-based importance
+        switch scored.chunk.chunkType {
+        case "function": multiplier *= 1.0
+        case "class":    multiplier *= 1.0
+        case "doc":      multiplier *= 0.9
+        case "block":    multiplier *= 0.7
+        case "header":   multiplier *= 0.5
+        case "commit":   multiplier *= 0.6
+        default:         multiplier *= 0.8
+        }
+
+        // File path heuristics
+        let path = scored.file.lowercased()
+        if path.contains("test") || path.contains("spec") || path.contains("mock") {
+            multiplier *= 0.6
+        }
+        if path.contains("generated") || path.contains(".build/") || path.contains("vendor/") {
+            multiplier *= 0.3
+        }
+
+        // Visibility heuristic: check if content starts with public/export
+        let contentStart = scored.chunk.content.prefix(200).lowercased()
+        if contentStart.contains("public ") || contentStart.contains("export ") || contentStart.contains("open ") {
+            multiplier *= 1.2
+        }
+
+        return multiplier
+    }
+
+    // MARK: - Dynamic Threshold
+
+    private static func dynamicThreshold(scores: [Float]) -> Float {
+        guard scores.count >= 3 else { return 0.05 }
+
+        let top = Array(scores.prefix(5))
+        let mean = top.reduce(0, +) / Float(top.count)
+        let variance = top.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Float(top.count)
+        let stddev = sqrt(variance)
+
+        return max(mean - stddev, 0.05)
+    }
+
+    // MARK: - Result Consolidation
+
+    /// Limit per-file results to 2, track count of additional matches.
+    private static func consolidateResults(
+        scored: [(ScoredChunk, Float)],
+        limit: Int
+    ) -> [SearchResult] {
+        var fileCount: [String: Int] = [:]
+        var fileExtras: [String: Int] = [:]
+        var results: [SearchResult] = []
+
+        for (chunk, finalScore) in scored {
+            let file = chunk.file
+            let count = fileCount[file, default: 0]
+
+            if count >= 2 {
+                fileExtras[file, default: 0] += 1
+                continue
+            }
+
+            fileCount[file, default: 0] += 1
+
             let lines: String? = {
-                if let start = scored.chunk.startLine, let end = scored.chunk.endLine {
+                if let start = chunk.chunk.startLine, let end = chunk.chunk.endLine {
                     return "\(start)-\(end)"
                 }
                 return nil
             }()
 
-            return SearchResult(
-                file: scored.file,
-                symbol: scored.chunk.symbolName,
-                type: scored.chunk.chunkType,
+            results.append(SearchResult(
+                file: file,
+                symbol: chunk.chunk.symbolName,
+                type: chunk.chunk.chunkType,
                 lines: lines,
                 score: finalScore,
-                content: scored.chunk.content
-            )
+                content: chunk.chunk.content,
+                moreInFile: 0  // updated below
+            ))
+
+            if results.count >= limit { break }
         }
+
+        // Backfill moreInFile counts
+        for i in 0..<results.count {
+            if let extras = fileExtras[results[i].file] {
+                results[i] = SearchResult(
+                    file: results[i].file,
+                    symbol: results[i].symbol,
+                    type: results[i].type,
+                    lines: results[i].lines,
+                    score: results[i].score,
+                    content: results[i].content,
+                    moreInFile: extras
+                )
+            }
+        }
+
+        return results
     }
 
     // MARK: - Cosine Similarity
