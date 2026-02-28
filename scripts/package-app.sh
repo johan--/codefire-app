@@ -109,6 +109,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
     </array>
     <key>LSUIElement</key>
     <false/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Context needs microphone access to record meeting audio for transcription and task extraction.</string>
 </dict>
 </plist>
 PLIST
