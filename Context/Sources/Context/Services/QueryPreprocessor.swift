@@ -22,9 +22,21 @@ struct QueryPreprocessor {
     // MARK: - Public API
 
     static func process(_ query: String) -> ProcessedQuery {
-        let queryType = classify(query)
-        let tokenized = tokenize(query)
-        let expanded = queryType == .concept ? expand(query) : []
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return ProcessedQuery(
+                originalQuery: query,
+                tokenizedQuery: "",
+                expandedTerms: [],
+                queryType: .pattern,
+                semanticWeight: 0.70,
+                keywordWeight: 0.30
+            )
+        }
+
+        let queryType = classify(trimmed)
+        let tokenized = tokenize(trimmed)
+        let expanded = queryType == .concept ? expand(trimmed) : []
         let weights = selectWeights(queryType)
 
         return ProcessedQuery(
@@ -50,7 +62,7 @@ struct QueryPreprocessor {
         }
 
         // Contains code operators → likely symbol or pattern
-        let codeOperators: [Character] = [".", "(", ")", "<", ">", "_", ":"]
+        let codeOperators: [Character] = [".", "(", ")", "<", ">", "_"]
         let hasCodeOps = query.contains(where: { codeOperators.contains($0) })
         if hasCodeOps && words.count <= 3 { return .symbol }
 
@@ -115,7 +127,7 @@ struct QueryPreprocessor {
             }
         }
 
-        return expansions
+        return Array(expansions.prefix(15))
     }
 
     // MARK: - Weight Selection
