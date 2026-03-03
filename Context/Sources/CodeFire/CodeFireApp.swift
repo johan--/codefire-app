@@ -45,7 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct ContextApp: App {
+struct CodeFireApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @StateObject private var appState = AppState()
@@ -86,22 +86,22 @@ struct ContextApp: App {
             fatalError("Database setup failed: \(error)")
         }
 
-        // Deploy MCP binary to ~/Library/Application Support/Context/bin/
+        // Deploy MCP binary to ~/Library/Application Support/CodeFire/bin/
         // macOS blocks binaries inside .app bundles from being spawned as subprocesses,
         // so Claude Code needs the binary at a standalone path.
         Self.deployMCPBinary()
     }
 
-    /// Copies the ContextMCP binary from the app bundle to Application Support
+    /// Copies the CodeFireMCP binary from the app bundle to Application Support
     /// so Claude Code can spawn it as an MCP server (binaries inside .app bundles hang).
     private static func deployMCPBinary() {
         guard let execURL = Bundle.main.executableURL else { return }
-        let bundleMCP = execURL.deletingLastPathComponent().appendingPathComponent("ContextMCP")
+        let bundleMCP = execURL.deletingLastPathComponent().appendingPathComponent("CodeFireMCP")
         guard FileManager.default.fileExists(atPath: bundleMCP.path) else { return }
 
         let dest = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!.appendingPathComponent("Context/bin", isDirectory: true)
-        let destBinary = dest.appendingPathComponent("ContextMCP")
+            .first!.appendingPathComponent("CodeFire/bin", isDirectory: true)
+        let destBinary = dest.appendingPathComponent("CodeFireMCP")
 
         // Skip if already up-to-date (same size)
         if let srcAttr = try? FileManager.default.attributesOfItem(atPath: bundleMCP.path),

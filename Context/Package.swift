@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Context",
+    name: "CodeFire",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -11,20 +11,20 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "Context",
+            name: "CodeFire",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "WhisperKit", package: "WhisperKit"),
             ],
-            path: "Sources/Context"
+            path: "Sources/CodeFire"
         ),
         .executableTarget(
-            name: "ContextMCP",
+            name: "CodeFireMCP",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Sources/ContextMCP"
+            path: "Sources/CodeFireMCP"
         ),
     ]
 )

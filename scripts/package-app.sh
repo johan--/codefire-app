@@ -1,16 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Package Context as a macOS .app bundle
+# Package CodeFire as a macOS .app bundle
 # Usage: ./scripts/package-app.sh
-# Output: build/Context.app
+# Output: build/CodeFire.app
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
-APP_NAME="Context"
+APP_NAME="CodeFire"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
-BUNDLE_ID="com.context.app"
+BUNDLE_ID="com.codefire.app"
 VERSION="1.0.0"
 
 echo "=== Packaging $APP_NAME.app ==="
@@ -20,8 +20,8 @@ echo ""
 echo "[1/5] Building release binaries..."
 cd "$PROJECT_DIR/Context"
 swift build -c release 2>&1 | tail -3
-BINARY_PATH=".build/release/Context"
-MCP_BINARY_PATH=".build/release/ContextMCP"
+BINARY_PATH=".build/release/CodeFire"
+MCP_BINARY_PATH=".build/release/CodeFireMCP"
 
 if [ ! -f "$BINARY_PATH" ]; then
     echo "ERROR: Binary not found at $BINARY_PATH"
@@ -61,7 +61,7 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 # Copy binaries
 cp "$BINARY_PATH" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-cp "$MCP_BINARY_PATH" "$APP_BUNDLE/Contents/MacOS/ContextMCP"
+cp "$MCP_BINARY_PATH" "$APP_BUNDLE/Contents/MacOS/CodeFireMCP"
 
 # Copy icon
 cp "$ICON_WORK/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
@@ -101,16 +101,16 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
         <dict>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>context-app</string>
+                <string>codefire</string>
             </array>
             <key>CFBundleURLName</key>
-            <string>com.context.oauth</string>
+            <string>com.codefire.oauth</string>
         </dict>
     </array>
     <key>LSUIElement</key>
     <false/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Context needs microphone access to record meeting audio for transcription and task extraction.</string>
+    <string>CodeFire needs microphone access to record meeting audio for transcription and task extraction.</string>
 </dict>
 </plist>
 PLIST
@@ -122,6 +122,11 @@ echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 echo "[5/5] Codesigning..."
 codesign --force --deep --sign - "$APP_BUNDLE" 2>&1
 echo "  Signed (ad-hoc)"
+
+# Create .zip for distribution
+echo "Creating .zip archive..."
+ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$BUILD_DIR/$APP_NAME.zip"
+echo "  Archive: $(du -h "$BUILD_DIR/$APP_NAME.zip" | awk '{print $1}')"
 
 # Cleanup
 rm -rf "$ICON_WORK"
@@ -138,11 +143,11 @@ echo "Or just double-click it in Finder:"
 echo "  open \"$BUILD_DIR\""
 echo ""
 echo "MCP server binary is at:"
-echo "  $APP_BUNDLE/Contents/MacOS/ContextMCP"
+echo "  $APP_BUNDLE/Contents/MacOS/CodeFireMCP"
 echo ""
 echo "To configure Claude Code, add to ~/.claude/settings.json:"
 echo "  \"mcpServers\": {"
-echo "    \"context-tasks\": {"
-echo "      \"command\": \"$APP_BUNDLE/Contents/MacOS/ContextMCP\""
+echo "    \"codefire\": {"
+echo "      \"command\": \"$APP_BUNDLE/Contents/MacOS/CodeFireMCP\""
 echo "    }"
 echo "  }"
