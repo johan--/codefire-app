@@ -318,7 +318,11 @@ class ContextEngine: ObservableObject {
             indexProgress = 0.8
 
             // 4. Clean up orphaned files
-            try await cleanupOrphanedFiles(projectId: projectId, projectPath: projectPath)
+            do {
+                try await cleanupOrphanedFiles(projectId: projectId, projectPath: projectPath)
+            } catch {
+                print("ContextEngine: orphan cleanup failed (non-fatal): \(error)")
+            }
 
             // 5. Count total chunks and mark as ready — FTS search works immediately
             await updateTotalChunks(projectId: projectId)
@@ -335,6 +339,7 @@ class ContextEngine: ObservableObject {
             lastError = error.localizedDescription
             indexStatus = "error"
             isIndexing = false
+            indexProgress = 0
             await updateIndexState(projectId: projectId, status: "error", error: error.localizedDescription)
         }
     }
@@ -503,42 +508,41 @@ class ContextEngine: ObservableObject {
         let gitFileId = "\(projectId)__git_history"
         let gitLogHash = sha256(gitLog)
 
-        // Delete existing git chunks
-        try? await DatabaseService.shared.dbQueue.write { db in
-            try db.execute(sql: "DELETE FROM codeChunks WHERE fileId = ?", arguments: [gitFileId])
-            // Ensure IndexedFile record exists for git history
-            var gitFile = IndexedFile(
-                id: gitFileId,
-                projectId: projectId,
-                relativePath: ".git/history",
-                contentHash: gitLogHash,
-                language: nil,
-                lastIndexedAt: Date()
-            )
-            try gitFile.save(db)
-        }
+        // Delete existing git chunks and upsert file record + new chunks in a single transaction
+        // to avoid orphaned state if one step fails.
+        do {
+            try await DatabaseService.shared.dbQueue.write { db in
+                try db.execute(sql: "DELETE FROM codeChunks WHERE fileId = ?", arguments: [gitFileId])
+                var gitFile = IndexedFile(
+                    id: gitFileId,
+                    projectId: projectId,
+                    relativePath: ".git/history",
+                    contentHash: gitLogHash,
+                    language: nil,
+                    lastIndexedAt: Date()
+                )
+                try gitFile.save(db)
 
-        let codeChunks: [CodeChunk] = chunks.map { chunk in
-            CodeChunk(
-                id: UUID().uuidString,
-                fileId: gitFileId,
-                projectId: projectId,
-                chunkType: chunk.chunkType,
-                symbolName: chunk.symbolName,
-                content: chunk.content,
-                startLine: chunk.startLine,
-                endLine: chunk.endLine,
-                embedding: nil
-            )
-        }
-
-        // Store without embedding — background embedding will pick these up
-        try? await DatabaseService.shared.dbQueue.write { db in
-            for var chunk in codeChunks {
-                try chunk.insert(db)
+                for chunk in chunks {
+                    var codeChunk = CodeChunk(
+                        id: UUID().uuidString,
+                        fileId: gitFileId,
+                        projectId: projectId,
+                        chunkType: chunk.chunkType,
+                        symbolName: chunk.symbolName,
+                        content: chunk.content,
+                        startLine: chunk.startLine,
+                        endLine: chunk.endLine,
+                        embedding: nil
+                    )
+                    try codeChunk.insert(db)
+                }
             }
+            return chunks.count
+        } catch {
+            print("ContextEngine: git history indexing failed (non-fatal): \(error)")
+            return 0
         }
-        return codeChunks.count
     }
 
     // MARK: - Background Embedding
@@ -700,17 +704,39 @@ class ContextEngine: ObservableObject {
             try IndexedFile.filter(Column("projectId") == projectId).fetchAll(db)
         }
 
+        // Collect orphaned file IDs with filesystem checks OUTSIDE the DB lock
         let fm = FileManager.default
+        var orphanedIds: [String] = []
         for file in indexed {
-            if file.relativePath == ".git/history" { continue }  // Special case
+            if file.relativePath == ".git/history" { continue }
             let fullPath = (projectPath as NSString).appendingPathComponent(file.relativePath)
             if !fm.fileExists(atPath: fullPath) {
-                try await DatabaseService.shared.dbQueue.write { db in
-                    try db.execute(sql: "DELETE FROM codeChunks WHERE fileId = ?", arguments: [file.id])
-                    try file.delete(db)
-                }
+                orphanedIds.append(file.id)
             }
         }
+
+        // Also clean up orphaned chunks that reference non-existent file records
+        // (e.g., from prior partial git history writes)
+        let orphanedChunkFileIds = try await DatabaseService.shared.dbQueue.write { db -> [String] in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT DISTINCT cc.fileId FROM codeChunks cc
+                LEFT JOIN indexedFiles inf ON cc.fileId = inf.id
+                WHERE cc.projectId = ? AND inf.id IS NULL
+            """, arguments: [projectId])
+            return rows.map { $0["fileId"] as String }
+        }
+
+        let allOrphanedFileIds = Array(Set(orphanedIds + orphanedChunkFileIds))
+        guard !allOrphanedFileIds.isEmpty else { return }
+
+        // Single batched delete transaction — avoids per-file lock contention
+        try await DatabaseService.shared.dbQueue.write { db in
+            for fileId in allOrphanedFileIds {
+                try db.execute(sql: "DELETE FROM codeChunks WHERE fileId = ?", arguments: [fileId])
+                try db.execute(sql: "DELETE FROM indexedFiles WHERE id = ?", arguments: [fileId])
+            }
+        }
+        print("ContextEngine: cleaned up \(allOrphanedFileIds.count) orphaned file(s)")
     }
 
     private func updateIndexState(projectId: String, status: String, totalChunks: Int? = nil, error: String? = nil) async {

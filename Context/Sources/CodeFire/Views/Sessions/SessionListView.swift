@@ -75,7 +75,12 @@ struct SessionListView: View {
             loadSessions()
         }
         .onChange(of: searchText) { _, _ in loadSessions() }
-        .onReceive(NotificationCenter.default.publisher(for: .sessionsDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .sessionsDidChange)) { notification in
+            if let notifProjectId = notification.userInfo?["projectId"] as? String,
+               let currentId = appState.currentProject?.id,
+               notifProjectId != currentId {
+                return
+            }
             loadSessions()
         }
     }

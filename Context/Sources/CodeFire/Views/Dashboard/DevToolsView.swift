@@ -6,6 +6,7 @@ import SwiftUI
 /// Ports are polled every 5 seconds and shown with their process names.
 struct DevToolsView: View {
     @EnvironmentObject var devEnv: DevEnvironment
+    @EnvironmentObject var appState: AppState
     @State private var isExpanded: Bool = true
 
     var body: some View {
@@ -101,7 +102,11 @@ struct DevToolsView: View {
         NotificationCenter.default.post(
             name: .launchTask,
             object: nil,
-            userInfo: ["title": cmd.title, "command": cmd.command]
+            userInfo: [
+                LaunchTaskKey.title: cmd.title,
+                LaunchTaskKey.command: cmd.command,
+                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+            ]
         )
     }
 }

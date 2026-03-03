@@ -102,7 +102,11 @@ struct TaskLauncherView: View {
         NotificationCenter.default.post(
             name: .launchTask,
             object: nil,
-            userInfo: ["title": preset.title, "command": command]
+            userInfo: [
+                LaunchTaskKey.title: preset.title,
+                LaunchTaskKey.command: command,
+                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+            ]
         )
     }
 
@@ -117,7 +121,11 @@ struct TaskLauncherView: View {
         NotificationCenter.default.post(
             name: .launchTask,
             object: nil,
-            userInfo: ["title": shortTitle, "command": command]
+            userInfo: [
+                LaunchTaskKey.title: shortTitle,
+                LaunchTaskKey.command: command,
+                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+            ]
         )
 
         customPrompt = ""

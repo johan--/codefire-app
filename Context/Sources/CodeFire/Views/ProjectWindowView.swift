@@ -29,7 +29,7 @@ struct ProjectWindowView: View {
         Group {
             if project != nil {
                 HSplitView {
-                    TerminalTabView(projectPath: $projectPath)
+                    TerminalTabView(projectPath: $projectPath, projectId: projectId)
                         .frame(minWidth: 400, idealWidth: 600)
 
                     GUIPanelView()
@@ -86,6 +86,7 @@ struct ProjectWindowView: View {
             project = loaded
             projectPath = loaded.path
             appState.selectProject(loaded)
+            appState.loadProjects()
             sessionWatcher.watchProject(loaded)
             devEnvironment.scan(projectPath: loaded.path)
             projectAnalyzer.scan(projectPath: loaded.path)

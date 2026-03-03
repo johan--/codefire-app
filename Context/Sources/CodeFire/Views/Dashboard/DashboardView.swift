@@ -30,7 +30,11 @@ struct DashboardView: View {
                         NotificationCenter.default.post(
                             name: .launchTask,
                             object: nil,
-                            userInfo: ["title": "Claude", "command": "claude"]
+                            userInfo: [
+                                LaunchTaskKey.title: "Claude",
+                                LaunchTaskKey.command: "claude",
+                                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+                            ]
                         )
                     }
                     ActionButton(
@@ -41,7 +45,11 @@ struct DashboardView: View {
                         NotificationCenter.default.post(
                             name: .launchTask,
                             object: nil,
-                            userInfo: ["title": "Claude (Resume)", "command": "claude --continue"]
+                            userInfo: [
+                                LaunchTaskKey.title: "Claude (Resume)",
+                                LaunchTaskKey.command: "claude --continue",
+                                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+                            ]
                         )
                     }
                     ActionButton(

@@ -257,7 +257,11 @@ struct KanbanBoard: View {
         NotificationCenter.default.post(
             name: .launchTask,
             object: nil,
-            userInfo: ["title": "Task: \(task.title)", "command": "claude \"\(escaped)\""]
+            userInfo: [
+                LaunchTaskKey.title: "Task: \(task.title)",
+                LaunchTaskKey.command: "claude \"\(escaped)\"",
+                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+            ]
         )
     }
 }

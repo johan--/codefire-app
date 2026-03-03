@@ -132,8 +132,10 @@ class ProjectDiscovery {
                     .filter(Session.Columns.id == sessionId)
                     .fetchOne(dbConn)
 
-                // Skip if session exists AND already has token data
-                if let existing = existing, existing.inputTokens > 0 || existing.outputTokens > 0 {
+                // Skip if session exists under the same project AND already has token data
+                if let existing = existing,
+                   existing.projectId == project.id,
+                   existing.inputTokens > 0 || existing.outputTokens > 0 {
                     continue
                 }
 

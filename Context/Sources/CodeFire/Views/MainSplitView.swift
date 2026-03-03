@@ -10,7 +10,7 @@ struct MainSplitView: View {
             ProjectSidebarView()
                 .frame(minWidth: 160, maxWidth: 240)
 
-            TerminalTabView(projectPath: $projectPath)
+            TerminalTabView(projectPath: $projectPath, projectId: appState.currentProject?.id ?? "")
                 .frame(minWidth: 300, idealWidth: 450, maxWidth: 550)
 
             GUIPanelView()

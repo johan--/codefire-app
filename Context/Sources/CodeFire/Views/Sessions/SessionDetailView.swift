@@ -101,8 +101,9 @@ struct SessionDetailView: View {
                         name: .launchTask,
                         object: nil,
                         userInfo: [
-                            "title": "Claude (Resume)",
-                            "command": "claude --resume \(session.id)"
+                            LaunchTaskKey.title: "Claude (Resume)",
+                            LaunchTaskKey.command: "claude --resume \(session.id)",
+                            LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
                         ]
                     )
                 } label: {

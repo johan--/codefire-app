@@ -5,6 +5,13 @@ extension Notification.Name {
     static let launchTask = Notification.Name("launchTask")
 }
 
+/// Keys for `.launchTask` notification userInfo.
+enum LaunchTaskKey {
+    static let title = "title"
+    static let command = "command"
+    static let projectId = "projectId"
+}
+
 /// A view that manages multiple terminal tabs, each backed by a `TerminalWrapper`.
 ///
 /// The tab bar sits at the top. A "+" button creates new tabs whose initial
@@ -15,6 +22,7 @@ extension Notification.Name {
 /// tabs that auto-run Claude commands.
 struct TerminalTabView: View {
     @Binding var projectPath: String
+    var projectId: String = ""
     @State private var tabs: [TerminalTab] = []
     @State private var selectedTabId: UUID?
     @State private var commandToSend: String?
@@ -119,8 +127,14 @@ struct TerminalTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .launchTask)) { notification in
             guard let info = notification.userInfo,
-                  let title = info["title"] as? String,
-                  let command = info["command"] as? String else { return }
+                  let title = info[LaunchTaskKey.title] as? String,
+                  let command = info[LaunchTaskKey.command] as? String else { return }
+            // Filter: only handle if projectId matches or notification has no projectId
+            if let notifProjectId = info[LaunchTaskKey.projectId] as? String,
+               !projectId.isEmpty,
+               notifProjectId != projectId {
+                return
+            }
             launchTask(title: title, command: command)
         }
         .onReceive(NotificationCenter.default.publisher(for: .pasteToTerminal)) { notification in

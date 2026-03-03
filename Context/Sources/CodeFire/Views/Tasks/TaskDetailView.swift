@@ -630,7 +630,11 @@ struct TaskDetailView: View {
         NotificationCenter.default.post(
             name: .launchTask,
             object: nil,
-            userInfo: ["title": "Task: \(title)", "command": "claude \"\(escaped)\""]
+            userInfo: [
+                LaunchTaskKey.title: "Task: \(title)",
+                LaunchTaskKey.command: "claude \"\(escaped)\"",
+                LaunchTaskKey.projectId: appState.currentProject?.id ?? ""
+            ]
         )
         dismiss()
     }

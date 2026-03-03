@@ -114,6 +114,6 @@ class SessionWatcher: ObservableObject {
         }
 
         // Notify views that session data changed so they can refresh.
-        NotificationCenter.default.post(name: .sessionsDidChange, object: nil)
+        NotificationCenter.default.post(name: .sessionsDidChange, object: nil, userInfo: ["projectId": project.id])
     }
 }
