@@ -3,6 +3,7 @@ import GRDB
 
 struct RecentEmailsView: View {
     @EnvironmentObject var gmailPoller: GmailPoller
+    @EnvironmentObject var settings: AppSettings
     @State private var emails: [ProcessedEmail] = []
     @State private var accounts: [GmailAccount] = []
     @State private var clientMap: [String: Client] = [:] // clientId → Client
@@ -47,7 +48,8 @@ struct RecentEmailsView: View {
                     email: email,
                     client: clientForEmail(email),
                     onBack: { selectedEmail = nil },
-                    onTaskCreated: { loadData() }
+                    onTaskCreated: { loadData() },
+                    demoMode: settings.demoMode
                 )
             } else if accounts.isEmpty {
                 noAccountsPlaceholder
@@ -296,14 +298,14 @@ struct RecentEmailsView: View {
                             .frame(width: 6, height: 6)
                     }
 
-                    Text(email.fromName ?? email.fromAddress)
+                    Text(settings.demoMode ? DemoContent.shared.mask(email.fromName ?? email.fromAddress, as: .email) : (email.fromName ?? email.fromAddress))
                         .font(.system(size: 11, weight: isUnread ? .semibold : .regular))
                         .foregroundColor(isUnread ? .primary : .secondary)
                         .lineLimit(1)
 
                     // Client badge
                     if let client = clientForEmail(email) {
-                        Text(client.name)
+                        Text(settings.demoMode ? DemoContent.shared.mask(client.name, as: .client) : client.name)
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color(hex: client.color) ?? .accentColor)
                             .padding(.horizontal, 5)
@@ -340,13 +342,13 @@ struct RecentEmailsView: View {
                         .foregroundColor(.secondary.opacity(0.4))
                 }
 
-                Text(email.subject)
+                Text(settings.demoMode ? DemoContent.shared.mask(email.subject, as: .task) : email.subject)
                     .font(.system(size: 11, weight: isUnread ? .medium : .regular))
                     .foregroundColor(isUnread ? .primary.opacity(0.85) : .secondary)
                     .lineLimit(1)
 
                 if let snippet = email.snippet, !snippet.isEmpty {
-                    Text(snippet)
+                    Text(settings.demoMode ? DemoContent.shared.mask(snippet, as: .snippet) : snippet)
                         .font(.system(size: 10))
                         .foregroundStyle(isUnread ? .tertiary : .quaternary)
                         .lineLimit(1)
@@ -431,6 +433,7 @@ private struct EmailDetailView: View {
     let client: Client?
     let onBack: () -> Void
     let onTaskCreated: () -> Void
+    var demoMode: Bool = false
 
     @State private var taskCreated = false
     @State private var errorMessage: String?
@@ -458,9 +461,9 @@ private struct EmailDetailView: View {
                     // Sender + client
                     HStack(spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(email.fromName ?? email.fromAddress)
+                            Text(demoMode ? DemoContent.shared.mask(email.fromName ?? email.fromAddress, as: .email) : (email.fromName ?? email.fromAddress))
                                 .font(.system(size: 13, weight: .semibold))
-                            Text(email.fromAddress)
+                            Text(demoMode ? DemoContent.shared.mask(email.fromAddress, as: .emailAddress) : email.fromAddress)
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -468,7 +471,7 @@ private struct EmailDetailView: View {
                         Spacer()
 
                         if let client {
-                            Text(client.name)
+                            Text(demoMode ? DemoContent.shared.mask(client.name, as: .client) : client.name)
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(Color(hex: client.color) ?? .accentColor)
                                 .padding(.horizontal, 8)
@@ -481,7 +484,7 @@ private struct EmailDetailView: View {
                     }
 
                     // Subject
-                    Text(email.subject)
+                    Text(demoMode ? DemoContent.shared.mask(email.subject, as: .task) : email.subject)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.primary)
 
@@ -494,12 +497,12 @@ private struct EmailDetailView: View {
 
                     // Body
                     if let body = email.body, !body.isEmpty {
-                        Text(body)
+                        Text(demoMode ? DemoContent.shared.mask(body, as: .snippet) : body)
                             .font(.system(size: 11))
                             .foregroundColor(.primary.opacity(0.9))
                             .textSelection(.enabled)
                     } else if let snippet = email.snippet, !snippet.isEmpty {
-                        Text(snippet)
+                        Text(demoMode ? DemoContent.shared.mask(snippet, as: .snippet) : snippet)
                             .font(.system(size: 11))
                             .foregroundColor(.primary.opacity(0.9))
                             .textSelection(.enabled)

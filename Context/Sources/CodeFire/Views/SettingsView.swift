@@ -108,6 +108,13 @@ private struct GeneralSettingsTab: View {
                 Toggle("Notify when Claude finishes", isOn: $settings.notifyOnClaudeDone)
             }
 
+            Section("Demo Mode") {
+                Toggle("Enable demo mode", isOn: $settings.demoMode)
+                Text("Replaces all client names, project names, and task titles with dummy data for clean screenshots. The database is never modified.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+
             Section("Preferred CLI") {
                 Picker("Default coding CLI", selection: $settings.preferredCLI) {
                     ForEach(CLIProvider.allCases) { cli in

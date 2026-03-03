@@ -6,6 +6,7 @@ struct NoteEditorView: View {
     let onDelete: () -> Void
     let onTogglePin: () -> Void
 
+    @EnvironmentObject var settings: AppSettings
     @State private var title: String = ""
     @State private var content: String = ""
 
@@ -13,9 +14,14 @@ struct NoteEditorView: View {
         VStack(spacing: 0) {
             // Toolbar
             HStack(spacing: 8) {
-                TextField("Title", text: $title)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 14, weight: .medium))
+                if settings.demoMode {
+                    Text(DemoContent.shared.mask(note.title, as: .note))
+                        .font(.system(size: 14, weight: .medium))
+                } else {
+                    TextField("Title", text: $title)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, weight: .medium))
+                }
 
                 Spacer()
 
@@ -72,10 +78,19 @@ struct NoteEditorView: View {
             Divider()
 
             // Content editor
-            TextEditor(text: $content)
-                .font(.system(size: 13, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .padding(12)
+            if settings.demoMode {
+                ScrollView {
+                    Text(DemoContent.shared.mask(note.content.isEmpty ? "No content" : note.content, as: .snippet))
+                        .font(.system(size: 13, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                }
+            } else {
+                TextEditor(text: $content)
+                    .font(.system(size: 13, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .padding(12)
+            }
         }
         .onAppear {
             title = note.title

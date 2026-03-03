@@ -21,6 +21,7 @@ struct HomeView: View {
 
 struct ProjectTaskSummary: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var settings: AppSettings
     @Environment(\.openWindow) private var openWindow
 
     struct ProjectTaskCount: Identifiable {
@@ -102,14 +103,14 @@ struct ProjectTaskSummary: View {
                     .foregroundColor(.secondary)
                     .frame(width: 14)
 
-                Text(pt.name)
+                Text(settings.demoMode ? DemoContent.shared.mask(pt.name, as: .project) : pt.name)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 if let clientName = pt.clientName {
-                    Text(clientName)
+                    Text(settings.demoMode ? DemoContent.shared.mask(clientName, as: .client) : clientName)
                         .font(.system(size: 9, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                         .padding(.horizontal, 5)
@@ -122,7 +123,7 @@ struct ProjectTaskSummary: View {
                 }
 
                 if let tag = pt.tag, !tag.isEmpty {
-                    Text(tag)
+                    Text(settings.demoMode ? DemoContent.shared.mask(tag, as: .project) : tag)
                         .font(.system(size: 9, weight: .medium))
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 5)

@@ -6,6 +6,7 @@ struct TaskCardView: View {
     var onProjectTap: (() -> Void)? = nil
     var onTap: (() -> Void)? = nil
 
+    @EnvironmentObject var settings: AppSettings
     @State private var isHovering = false
 
     var body: some View {
@@ -19,13 +20,13 @@ struct TaskCardView: View {
                         .frame(width: 12)
                         .padding(.top, 2)
                 }
-                Text(task.title)
+                Text(settings.demoMode ? DemoContent.shared.mask(task.title, as: .task) : task.title)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(2)
             }
 
             if let description = task.description, !description.isEmpty {
-                Text(description)
+                Text(settings.demoMode ? DemoContent.shared.mask(description, as: .snippet) : description)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -77,7 +78,7 @@ struct TaskCardView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "folder.fill")
                                 .font(.system(size: 8))
-                            Text(projectName)
+                            Text(settings.demoMode ? DemoContent.shared.mask(projectName, as: .project) : projectName)
                                 .font(.system(size: 9, weight: .medium))
                                 .lineLimit(1)
                         }

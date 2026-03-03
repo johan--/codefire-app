@@ -5,6 +5,7 @@ struct SessionDetailView: View {
     let session: Session
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var claudeService: ClaudeService
+    @EnvironmentObject var settings: AppSettings
 
     @State private var aiSummary: String?
     @State private var showAISummary = false
@@ -17,7 +18,7 @@ struct SessionDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(session.slug ?? session.id)
+                    Text(settings.demoMode ? DemoContent.shared.mask(session.slug ?? session.id, as: .session) : (session.slug ?? session.id))
                         .font(.system(size: 16, weight: .bold))
                         .textSelection(.enabled)
 
@@ -29,7 +30,7 @@ struct SessionDetailView: View {
                             )
                         }
                         if let branch = session.gitBranch {
-                            DetailBadge(icon: "arrow.triangle.branch", text: branch, color: .purple)
+                            DetailBadge(icon: "arrow.triangle.branch", text: settings.demoMode ? DemoContent.shared.mask(branch, as: .gitBranch) : branch, color: .purple)
                         }
                         if let model = session.model {
                             DetailBadge(icon: "cpu", text: model, color: .blue)
@@ -69,7 +70,7 @@ struct SessionDetailView: View {
                                     Image(systemName: "doc.text")
                                         .font(.system(size: 10))
                                         .foregroundColor(.secondary)
-                                    Text(file)
+                                    Text(settings.demoMode ? DemoContent.shared.mask(file, as: .filePath) : file)
                                         .font(.system(size: 11, design: .monospaced))
                                         .lineLimit(1)
                                         .textSelection(.enabled)
@@ -180,7 +181,7 @@ struct SessionDetailView: View {
             // Show AI summary if available, otherwise show basic summary
             if let ai = aiSummary {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(ai)
+                    Text(settings.demoMode ? DemoContent.shared.mask(ai, as: .snippet) : ai)
                         .font(.system(size: 13))
                         .foregroundColor(.primary.opacity(0.85))
                         .textSelection(.enabled)
@@ -213,7 +214,7 @@ struct SessionDetailView: View {
                         .stroke(Color.purple.opacity(0.15), lineWidth: 0.5)
                 )
             } else if let summary = session.summary, !summary.isEmpty {
-                Text(summary)
+                Text(settings.demoMode ? DemoContent.shared.mask(summary, as: .snippet) : summary)
                     .font(.system(size: 13))
                     .foregroundColor(.primary.opacity(0.85))
                     .textSelection(.enabled)

@@ -12,6 +12,7 @@ struct TaskDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var claudeService: ClaudeService
+    @EnvironmentObject var settings: AppSettings
 
     @State private var title: String = ""
     @State private var description: String = ""
@@ -279,7 +280,7 @@ struct TaskDetailView: View {
                                             .padding(.top, 2)
 
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(note.content)
+                                            Text(settings.demoMode ? DemoContent.shared.mask(note.content, as: .snippet) : note.content)
                                                 .font(.system(size: 11))
                                                 .foregroundColor(.primary.opacity(0.85))
 
@@ -405,19 +406,19 @@ struct TaskDetailView: View {
                             if let email = emailContext {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
-                                        Text("From: \(email.fromName ?? email.fromAddress)")
+                                        Text("From: \(settings.demoMode ? DemoContent.shared.mask(email.fromName ?? email.fromAddress, as: .email) : (email.fromName ?? email.fromAddress))")
                                             .font(.system(size: 11))
                                         Spacer()
                                         Text(email.receivedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
                                             .font(.system(size: 10))
                                             .foregroundStyle(.tertiary)
                                     }
-                                    Text("Subject: \(email.subject)")
+                                    Text("Subject: \(settings.demoMode ? DemoContent.shared.mask(email.subject, as: .task) : email.subject)")
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
 
                                     if let snippet = email.snippet, !snippet.isEmpty {
-                                        Text(snippet)
+                                        Text(settings.demoMode ? DemoContent.shared.mask(snippet, as: .snippet) : snippet)
                                             .font(.system(size: 11))
                                             .foregroundColor(.secondary)
                                             .lineLimit(3)
@@ -595,9 +596,11 @@ struct TaskDetailView: View {
     }
 
     private func projectPickerLabel(_ project: Project) -> String {
+        let name = settings.demoMode ? DemoContent.shared.mask(project.name, as: .project) : project.name
         let tags = project.tagsArray
-        if tags.isEmpty { return project.name }
-        return "\(project.name) (\(tags.joined(separator: ", ")))"
+        if tags.isEmpty { return name }
+        let maskedTags = settings.demoMode ? tags.map { DemoContent.shared.mask($0, as: .project) } : tags
+        return "\(name) (\(maskedTags.joined(separator: ", ")))"
     }
 
     private func addCustomLabel() {

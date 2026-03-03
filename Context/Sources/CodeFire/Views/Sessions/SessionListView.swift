@@ -110,12 +110,13 @@ struct SessionListView: View {
 struct SessionRow: View {
     let session: Session
     let isSelected: Bool
+    @EnvironmentObject var settings: AppSettings
     @State private var isHovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(session.slug ?? String(session.id.prefix(8)))
+                Text(settings.demoMode ? DemoContent.shared.mask(session.slug ?? String(session.id.prefix(8)), as: .session) : (session.slug ?? String(session.id.prefix(8))))
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                 Spacer()
@@ -139,7 +140,7 @@ struct SessionRow: View {
                         .foregroundColor(session.estimatedCost > 1 ? .orange : .green)
                 }
                 if let branch = session.gitBranch {
-                    Label(branch, systemImage: "arrow.triangle.branch")
+                    Label(settings.demoMode ? DemoContent.shared.mask(branch, as: .gitBranch) : branch, systemImage: "arrow.triangle.branch")
                         .font(.system(size: 10))
                         .foregroundColor(.purple.opacity(0.7))
                         .lineLimit(1)

@@ -215,6 +215,7 @@ struct NoteListView: View {
 struct NoteRow: View {
     let note: Note
     let isSelected: Bool
+    @EnvironmentObject var settings: AppSettings
     @State private var isHovering = false
 
     var body: some View {
@@ -226,7 +227,7 @@ struct NoteRow: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(note.title)
+                Text(settings.demoMode ? DemoContent.shared.mask(note.title, as: .note) : note.title)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
 

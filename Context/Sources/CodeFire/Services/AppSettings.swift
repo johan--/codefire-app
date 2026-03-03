@@ -54,6 +54,14 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(networkBodyLimit, forKey: "networkBodyLimit") }
     }
 
+    // Demo Mode
+    @Published var demoMode: Bool {
+        didSet {
+            UserDefaults.standard.set(demoMode, forKey: "demoMode")
+            DemoContent.shared.clearCache()
+        }
+    }
+
     // Updates
     @Published var checkForUpdates: Bool {
         didSet { UserDefaults.standard.set(checkForUpdates, forKey: "checkForUpdates") }
@@ -102,8 +110,9 @@ class AppSettings: ObservableObject {
         self.browserAllowedDomains = defaults.stringArray(forKey: "browserAllowedDomains") ?? []
         self.networkBodyLimit = defaults.object(forKey: "networkBodyLimit") as? Int ?? 51200
 
+        self.demoMode = defaults.object(forKey: "demoMode") as? Bool ?? false
         self.checkForUpdates = defaults.object(forKey: "checkForUpdates") as? Bool ?? true
-        self.githubRepo = defaults.string(forKey: "githubRepo") ?? ""
+        self.githubRepo = defaults.string(forKey: "githubRepo") ?? "websitebutlers/codefire-app"
 
         self.briefingStalenessHours = defaults.object(forKey: "briefingStalenessHours") as? Double ?? 6.0
 

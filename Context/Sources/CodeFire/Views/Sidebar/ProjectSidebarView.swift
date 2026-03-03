@@ -5,6 +5,7 @@ import AppKit
 
 struct ProjectSidebarView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var settings: AppSettings
     @Environment(\.openWindow) private var openWindow
 
     @State private var showingNewClient = false
@@ -158,7 +159,7 @@ struct ProjectSidebarView: View {
                     Circle()
                         .fill(Color(hex: client.color) ?? .blue)
                         .frame(width: 8, height: 8)
-                    Text(client.name)
+                    Text(settings.demoMode ? DemoContent.shared.mask(client.name, as: .client) : client.name)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.secondary)
                         .textCase(.uppercase)
@@ -219,8 +220,11 @@ struct ProjectSidebarView: View {
 
         SidebarItem(
             icon: "folder.fill",
-            label: project.name,
-            tag: project.tagsArray.first,
+            label: settings.demoMode ? DemoContent.shared.mask(project.name, as: .project) : project.name,
+            tag: {
+                guard let tag = project.tagsArray.first else { return nil }
+                return settings.demoMode ? DemoContent.shared.mask(tag, as: .project) : tag
+            }(),
             isSelected: isSelected,
             accentColor: .accentColor
         ) {

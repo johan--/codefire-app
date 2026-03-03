@@ -4,6 +4,7 @@ import GRDB
 struct RecordingDetailView: View {
     @Binding var recording: Recording
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var settings: AppSettings
     @State private var extractedTasks: [TaskItem] = []
     @State private var isEditingTitle = false
     @State private var editableTitle: String = ""
@@ -45,7 +46,10 @@ struct RecordingDetailView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if isEditingTitle {
+            if settings.demoMode {
+                Text(DemoContent.shared.mask(recording.title, as: .recording))
+                    .font(.system(size: 18, weight: .semibold))
+            } else if isEditingTitle {
                 TextField("Recording title", text: $editableTitle, onCommit: { saveTitle() })
                     .textFieldStyle(.plain)
                     .font(.system(size: 18, weight: .semibold))
@@ -104,7 +108,7 @@ struct RecordingDetailView: View {
     private func transcriptSection(_ transcript: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Transcript").font(.system(size: 14, weight: .semibold))
-            Text(transcript)
+            Text(settings.demoMode ? DemoContent.shared.mask(transcript, as: .snippet) : transcript)
                 .font(.system(size: 13))
                 .textSelection(.enabled)
                 .padding(12)

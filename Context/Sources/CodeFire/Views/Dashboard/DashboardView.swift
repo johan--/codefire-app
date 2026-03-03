@@ -259,13 +259,14 @@ struct StatCard: View {
 
 struct SessionCard: View {
     let session: Session
+    @EnvironmentObject var settings: AppSettings
     @State private var isHovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Header row
             HStack {
-                Text(session.slug ?? String(session.id.prefix(8)))
+                Text(settings.demoMode ? DemoContent.shared.mask(session.slug ?? String(session.id.prefix(8)), as: .session) : (session.slug ?? String(session.id.prefix(8))))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
 
@@ -281,7 +282,7 @@ struct SessionCard: View {
             // Metadata pills
             HStack(spacing: 6) {
                 if let branch = session.gitBranch {
-                    MetadataPill(icon: "arrow.triangle.branch", text: branch, color: .purple)
+                    MetadataPill(icon: "arrow.triangle.branch", text: settings.demoMode ? DemoContent.shared.mask(branch, as: .gitBranch) : branch, color: .purple)
                 }
                 if let model = session.model {
                     MetadataPill(icon: "cpu", text: model, color: .blue)
@@ -307,7 +308,7 @@ struct SessionCard: View {
 
             // Summary
             if let summary = session.summary, !summary.isEmpty {
-                Text(summary)
+                Text(settings.demoMode ? DemoContent.shared.mask(summary, as: .snippet) : summary)
                     .font(.system(size: 12))
                     .foregroundColor(.primary.opacity(0.7))
                     .lineLimit(2)
