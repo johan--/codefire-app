@@ -16,9 +16,11 @@
     "@xterm/xterm": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
+    "lucide-react": "^0.576.0",
     "node-pty": "^1.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-resizable-panels": "^4.7.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

@@ -1,9 +1,19 @@
+import MainLayout from '@renderer/layouts/MainLayout'
+
 export default function App() {
-  return (
-    <div className="h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex items-center justify-center">
-      <h1 className="text-xl font-semibold text-codefire-orange">
-        CodeFire
-      </h1>
-    </div>
-  )
+  const params = new URLSearchParams(window.location.search)
+  const projectId = params.get('projectId')
+
+  if (projectId) {
+    // ProjectLayout will be implemented in Task 19
+    return (
+      <div className="h-screen bg-neutral-900 text-neutral-200 flex items-center justify-center">
+        <p className="text-sm text-neutral-500">
+          Project window: {projectId}
+        </p>
+      </div>
+    )
+  }
+
+  return <MainLayout />
 }
