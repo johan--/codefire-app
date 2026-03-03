@@ -54,6 +54,14 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(networkBodyLimit, forKey: "networkBodyLimit") }
     }
 
+    // Updates
+    @Published var checkForUpdates: Bool {
+        didSet { UserDefaults.standard.set(checkForUpdates, forKey: "checkForUpdates") }
+    }
+    @Published var githubRepo: String {
+        didSet { UserDefaults.standard.set(githubRepo, forKey: "githubRepo") }
+    }
+
     // Briefing
     @Published var briefingStalenessHours: Double {
         didSet { UserDefaults.standard.set(briefingStalenessHours, forKey: "briefingStalenessHours") }
@@ -93,6 +101,9 @@ class AppSettings: ObservableObject {
 
         self.browserAllowedDomains = defaults.stringArray(forKey: "browserAllowedDomains") ?? []
         self.networkBodyLimit = defaults.object(forKey: "networkBodyLimit") as? Int ?? 51200
+
+        self.checkForUpdates = defaults.object(forKey: "checkForUpdates") as? Bool ?? true
+        self.githubRepo = defaults.string(forKey: "githubRepo") ?? ""
 
         self.briefingStalenessHours = defaults.object(forKey: "briefingStalenessHours") as? Double ?? 6.0
 

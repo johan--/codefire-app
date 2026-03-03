@@ -44,9 +44,65 @@ struct SettingsView: View {
 
 private struct GeneralSettingsTab: View {
     @ObservedObject var settings: AppSettings
+    @StateObject private var updateService = UpdateService.shared
 
     var body: some View {
         Form {
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $settings.checkForUpdates)
+                TextField("GitHub repo (owner/repo)", text: $settings.githubRepo)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                Text("e.g. nicknorris/codefire")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+
+                HStack {
+                    Button("Check Now") {
+                        let parts = settings.githubRepo.split(separator: "/")
+                        guard parts.count == 2 else { return }
+                        Task {
+                            await updateService.checkForUpdate(
+                                owner: String(parts[0]),
+                                repo: String(parts[1])
+                            )
+                        }
+                    }
+                    .disabled(settings.githubRepo.split(separator: "/").count != 2)
+
+                    if updateService.updateAvailable, let version = updateService.latestVersion {
+                        Text("v\(version) available")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.green)
+                    }
+                }
+
+                if updateService.updateAvailable {
+                    Button("Download & Install") {
+                        let parts = settings.githubRepo.split(separator: "/")
+                        guard parts.count == 2 else { return }
+                        Task {
+                            await updateService.downloadAndInstall(
+                                owner: String(parts[0]),
+                                repo: String(parts[1])
+                            )
+                        }
+                    }
+                    .disabled(updateService.isDownloading)
+
+                    if updateService.isDownloading {
+                        ProgressView(value: updateService.downloadProgress)
+                            .progressViewStyle(.linear)
+                    }
+                }
+
+                if let error = updateService.error {
+                    Text(error)
+                        .font(.system(size: 11))
+                        .foregroundColor(.red)
+                }
+            }
+
             Section("Notifications") {
                 Toggle("Notify when new emails arrive", isOn: $settings.notifyOnNewEmail)
                 Toggle("Notify when Claude finishes", isOn: $settings.notifyOnClaudeDone)

@@ -61,6 +61,7 @@ struct CodeFireApp: App {
     @StateObject private var contextEngine = ContextEngine()
     @StateObject private var briefingService = BriefingService()
     @StateObject private var notificationService: SystemNotificationService
+    @StateObject private var updateService = UpdateService.shared
 
     init() {
         // Register as a foreground GUI app. Without this, a bare SPM executable
@@ -182,6 +183,7 @@ struct CodeFireApp: App {
                 .environmentObject(githubService)
                 .environmentObject(contextEngine)
                 .environmentObject(briefingService)
+                .environmentObject(updateService)
                 .onAppear {
                     NSApplication.shared.activate(ignoringOtherApps: true)
                     appState.loadProjects()
@@ -193,6 +195,16 @@ struct CodeFireApp: App {
                     notificationService.observeClaudeExitNotifications()
                     Task {
                         await briefingService.checkAndGenerate(settings: appSettings)
+                    }
+                    // Start auto-update checks if enabled
+                    if appSettings.checkForUpdates {
+                        let parts = appSettings.githubRepo.split(separator: "/")
+                        if parts.count == 2 {
+                            updateService.startPeriodicChecks(
+                                owner: String(parts[0]),
+                                repo: String(parts[1])
+                            )
+                        }
                     }
                 }
                 .onChange(of: appState.currentProject) { _, project in
