@@ -9,7 +9,9 @@ import SessionsView from '@renderer/views/SessionsView'
 import TasksView from '@renderer/views/TasksView'
 import NotesView from '@renderer/views/NotesView'
 import FilesView from '@renderer/views/FilesView'
+import MemoryView from '@renderer/views/MemoryView'
 import ServicesView from '@renderer/views/ServicesView'
+import RulesView from '@renderer/views/RulesView'
 
 interface ProjectLayoutProps {
   projectId: string
@@ -92,8 +94,12 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
         return <NotesView projectId={pid} />
       case 'Files':
         return <FilesView projectId={pid} projectPath={project!.path} />
+      case 'Memory':
+        return <MemoryView projectId={pid} projectPath={project!.path} />
       case 'Services':
         return <ServicesView projectId={pid} projectPath={project!.path} />
+      case 'Rules':
+        return <RulesView projectId={pid} projectPath={project!.path} />
       default:
         return (
           <div className="flex-1 p-4 overflow-y-auto">
