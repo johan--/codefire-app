@@ -11,7 +11,7 @@ export default function MainLayout() {
       <div className="flex flex-col" style={{ height: 'calc(100vh - 28px)' }}>
         <Group orientation="horizontal" id="main-layout">
           {/* Sidebar panel */}
-          <Panel id="sidebar" defaultSize="18%" minSize="12%" maxSize="25%">
+          <Panel id="sidebar" defaultSize="22%" minSize="14%" maxSize="30%">
             <Sidebar />
           </Panel>
 

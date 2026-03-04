@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Home, Clock, Plus, Folder } from 'lucide-react'
+import { Home, Settings, FolderOpen, Plus } from 'lucide-react'
 import type { Project, Client } from '@shared/models'
 import { api } from '@renderer/lib/api'
 import SidebarItem from './SidebarItem'
@@ -54,21 +54,27 @@ export default function Sidebar() {
     }
   }
 
+  // Recent projects: last 10 opened, regardless of client
+  const recentProjects = [...projects]
+    .filter((p) => p.lastOpened)
+    .sort((a, b) => new Date(b.lastOpened!).getTime() - new Date(a.lastOpened!).getTime())
+    .slice(0, 10)
+
   const handleProjectClick = (_projectId: string) => {
     // Window opening is handled inside ProjectItem
   }
 
   return (
-    <div className="h-full flex flex-col bg-neutral-950 border-r border-neutral-800">
+    <div className="h-full flex flex-col bg-neutral-950">
       {/* macOS drag region */}
       <div className="drag-region h-7 flex-shrink-0" />
 
       {/* Logo */}
-      <div className="px-3 pb-3 flex items-center gap-1.5">
-        <span className="text-codefire-orange text-title" aria-hidden>
-          *
+      <div className="px-3 pb-2 flex items-center gap-1.5">
+        <span className="text-codefire-orange text-sm" aria-hidden>
+          &#9632;
         </span>
-        <span className="text-title font-semibold text-neutral-200 tracking-tight">
+        <span className="text-sm font-semibold text-neutral-200 tracking-tight">
           CodeFire
         </span>
       </div>
@@ -81,39 +87,15 @@ export default function Sidebar() {
           isActive={activeNav === 'planner'}
           onClick={() => setActiveNav('planner')}
         />
-        <SidebarItem
-          label="Sessions"
-          icon={<Clock size={14} />}
-          isActive={activeNav === 'sessions'}
-          onClick={() => setActiveNav('sessions')}
-        />
       </div>
 
       {/* Divider */}
-      <div className="mx-3 my-3 border-t border-neutral-800" />
-
-      {/* Clients section header */}
-      <div className="px-3 mb-1 flex items-center justify-between">
-        <span className="text-tiny font-medium text-neutral-600 uppercase tracking-wider">
-          Clients
-        </span>
-        <button
-          className="
-            w-4 h-4 flex items-center justify-center rounded
-            text-neutral-600 hover:text-neutral-300 hover:bg-neutral-800
-            transition-colors duration-100
-          "
-          title="Add client"
-        >
-          <Plus size={12} />
-        </button>
-      </div>
+      <div className="mx-3 my-2 border-t border-neutral-800/60" />
 
       {/* Scrollable project list */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {loading ? (
-          // Subtle loading skeleton
-          <div className="space-y-2 px-2.5 pt-1">
+          <div className="space-y-2 px-3 pt-1">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
@@ -137,17 +119,27 @@ export default function Sidebar() {
               )
             })}
 
-            {/* Ungrouped projects */}
-            {ungrouped.length > 0 && (
-              <div className="mt-2">
-                {clients.length > 0 && (
-                  <div className="px-2.5 py-1 flex items-center gap-1.5">
-                    <Folder size={12} className="text-neutral-600" />
-                    <span className="text-tiny font-medium text-neutral-600 uppercase tracking-wider">
-                      Ungrouped
-                    </span>
-                  </div>
-                )}
+            {/* Recent Projects section */}
+            {recentProjects.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 mt-1 flex items-center">
+                  <span className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider">
+                    Recent Projects
+                  </span>
+                </div>
+                {recentProjects.map((project) => (
+                  <ProjectItem
+                    key={project.id}
+                    project={project}
+                    onClick={() => handleProjectClick(project.id)}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Ungrouped projects (no client) that aren't in recent */}
+            {ungrouped.length > 0 && recentProjects.length === 0 && (
+              <div>
                 {ungrouped.map((project) => (
                   <ProjectItem
                     key={project.id}
@@ -162,13 +154,49 @@ export default function Sidebar() {
             {projects.length === 0 && (
               <div className="px-3 py-4 text-center">
                 <p className="text-xs text-neutral-600">No projects yet</p>
-                <p className="text-tiny text-neutral-700 mt-1">
+                <p className="text-[10px] text-neutral-700 mt-1">
                   Open a project folder to get started
                 </p>
               </div>
             )}
           </>
         )}
+      </div>
+
+      {/* Bottom toolbar — Settings, Open Folder, + Group */}
+      <div className="flex items-center gap-1 px-2 py-2 border-t border-neutral-800/60">
+        <button
+          className="
+            p-1.5 rounded text-neutral-600 hover:text-neutral-300
+            hover:bg-white/[0.04] transition-colors duration-100
+          "
+          title="Settings"
+        >
+          <Settings size={14} />
+        </button>
+        <button
+          className="
+            flex items-center gap-1.5 px-2 py-1 rounded text-[11px]
+            text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]
+            transition-colors duration-100
+          "
+          title="Open project folder"
+        >
+          <FolderOpen size={13} />
+          <span>Open Folder</span>
+        </button>
+        <div className="flex-1" />
+        <button
+          className="
+            flex items-center gap-1 px-2 py-1 rounded text-[11px]
+            text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]
+            transition-colors duration-100
+          "
+          title="Add client group"
+        >
+          <Plus size={12} />
+          <span>Group</span>
+        </button>
       </div>
     </div>
   )
