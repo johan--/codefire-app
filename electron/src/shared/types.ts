@@ -73,7 +73,11 @@ export type MemoryChannel =
 
 export type RulesChannel = 'rules:list' | 'rules:read' | 'rules:write' | 'rules:create'
 
-export type ServiceChannel = 'services:detect'
+export type ServiceChannel =
+  | 'services:detect'
+  | 'services:listEnvFiles'
+  | 'services:readEnvFile'
+  | 'services:scanTemplates'
 
 export type SearchChannel = 'search:query' | 'search:reindex'
 
@@ -111,6 +115,7 @@ export type IpcChannel =
   | GmailChannel
   | FileChannel
   | MemoryChannel
+  | RulesChannel
   | ServiceChannel
 
 // ─── Electron API ────────────────────────────────────────────────────────────

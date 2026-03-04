@@ -186,6 +186,25 @@ export const api = {
       }>,
   },
 
+  rules: {
+    list: (projectPath: string) =>
+      invoke('rules:list', projectPath) as Promise<
+        Array<{
+          scope: 'global' | 'project' | 'local'
+          label: string
+          path: string
+          exists: boolean
+          color: 'blue' | 'purple' | 'orange'
+        }>
+      >,
+    read: (filePath: string) =>
+      invoke('rules:read', filePath) as Promise<string>,
+    write: (filePath: string, content: string) =>
+      invoke('rules:write', filePath, content) as Promise<void>,
+    create: (filePath: string, template?: string) =>
+      invoke('rules:create', filePath, template) as Promise<void>,
+  },
+
   services: {
     detect: (projectPath: string) =>
       invoke('services:detect', projectPath) as Promise<
@@ -195,6 +214,22 @@ export const api = {
           configPath: string
           dashboardUrl: string | null
           icon: string
+        }>
+      >,
+    listEnvFiles: (projectPath: string) =>
+      invoke('services:listEnvFiles', projectPath) as Promise<
+        Array<{ name: string; path: string; varCount: number }>
+      >,
+    readEnvFile: (filePath: string) =>
+      invoke('services:readEnvFile', filePath) as Promise<
+        Array<{ key: string; value: string; comment?: string }>
+      >,
+    scanTemplates: (projectPath: string) =>
+      invoke('services:scanTemplates', projectPath) as Promise<
+        Array<{
+          name: string
+          path: string
+          vars: Array<{ key: string; comment?: string; defaultValue?: string }>
         }>
       >,
   },
