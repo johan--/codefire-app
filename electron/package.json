@@ -3,6 +3,10 @@
   "version": "1.0.4",
   "description": "CodeFire — Cross-platform companion for AI coding CLIs",
   "main": "dist-electron/main/index.js",
+  "author": {
+    "name": "Website Butlers",
+    "email": "hello@websitebutlers.com"
+  },
   "repository": "github:websitebutlers/codefire-app",
   "scripts": {
     "dev": "vite",
