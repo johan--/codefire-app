@@ -6,6 +6,7 @@ import SwiftUI
 /// is detected. Shows agent count, elapsed times, and frozen warnings.
 struct AgentStatusBar: View {
     @ObservedObject var monitor: AgentMonitor
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if monitor.claudeProcess != nil {
@@ -55,6 +56,15 @@ struct AgentStatusBar: View {
                 }
 
                 Spacer()
+
+                Button(action: { openWindow(id: "agent-arena") }) {
+                    Image(systemName: "gamecontroller.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 10)
+                .help("Open Agent Arena")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)

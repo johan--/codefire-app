@@ -59,6 +59,85 @@ class AgentMonitor: ObservableObject {
         }
     }
 
+    /// Start monitoring all Claude processes system-wide (not tied to a specific shell).
+    /// Used by the Agent Arena which is a global window.
+    func startGlobal() {
+        timer?.invalidate()
+        self.shellPid = 0
+        isMonitoring = true
+        pollGlobal()
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            self?.pollGlobal()
+        }
+    }
+
+    private func pollGlobal() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            let (claude, agents) = self.scanGlobal()
+            DispatchQueue.main.async {
+                let wasRunning = self.claudeProcess != nil
+                self.claudeProcess = claude
+                self.agents = agents
+                if wasRunning && claude == nil {
+                    NotificationCenter.default.post(name: .claudeProcessDidExit, object: nil)
+                }
+            }
+        }
+    }
+
+    /// Scan all processes for Claude Code — not scoped to a specific shell.
+    private func scanGlobal() -> (claude: AgentInfo?, agents: [AgentInfo]) {
+        let records = fetchProcesses()
+        guard !records.isEmpty else { return (nil, []) }
+
+        var procMap: [Int: ProcRecord] = [:]
+        var childrenOf: [Int: [Int]] = [:]
+        var claudeProcs: [ProcRecord] = []
+
+        for r in records {
+            procMap[r.pid] = r
+            childrenOf[r.ppid, default: []].append(r.pid)
+            if isClaude(r.command) {
+                claudeProcs.append(r)
+            }
+        }
+
+        guard !claudeProcs.isEmpty else { return (nil, []) }
+
+        // Find the "main" claude — the one with the shallowest depth (closest to a shell)
+        // Sort by PID as a tiebreaker (oldest = main)
+        claudeProcs.sort { $0.pid < $1.pid }
+        let main = claudeProcs[0]
+
+        let claudeInfo = AgentInfo(
+            id: main.pid, parentPid: main.ppid,
+            elapsed: main.etime, command: "Claude Code", depth: 0
+        )
+
+        // Agents = other claude processes that are descendants of main
+        let mainPid = main.pid
+        var agentInfos: [AgentInfo] = []
+
+        for proc in claudeProcs.dropFirst() {
+            var cursor = proc.ppid
+            var isChild = false
+            for _ in 0..<10 {
+                if cursor == mainPid { isChild = true; break }
+                guard let parent = procMap[cursor] else { break }
+                cursor = parent.ppid
+            }
+            if isChild {
+                agentInfos.append(AgentInfo(
+                    id: proc.pid, parentPid: proc.ppid,
+                    elapsed: proc.etime, command: "Agent", depth: 1
+                ))
+            }
+        }
+
+        return (claudeInfo, agentInfos)
+    }
+
     func stop() {
         timer?.invalidate()
         timer = nil
@@ -214,9 +293,13 @@ class AgentMonitor: ObservableObject {
                 }
             }
 
-            // Only fetch full args for "node" processes (Claude Code runs as node)
+            // Fetch full args for processes that might be Claude Code:
+            // - "node" (older Node-based Claude Code)
+            // - "claude" (native binary accessed via symlink)
+            // - version-like names e.g. "2.1.69" (actual binary filename at ~/.local/share/claude/versions/X.Y.Z)
+            let needsFullArgs = comm == "node" || comm == "claude" || Self.looksLikeVersion(comm)
             let fullCommand: String
-            if comm == "node" {
+            if needsFullArgs {
                 fullCommand = Self.getProcessArgs(pid: Int32(pid)) ?? comm
             } else {
                 fullCommand = comm
@@ -266,6 +349,13 @@ class AgentMonitor: ObservableObject {
         return args.joined(separator: " ")
     }
 
+    /// Check if a string looks like a semver version number (e.g. "2.1.69").
+    /// Claude Code's native binary is named by its version at ~/.local/share/claude/versions/X.Y.Z
+    private static func looksLikeVersion(_ s: String) -> Bool {
+        let parts = s.split(separator: ".")
+        return parts.count >= 2 && parts.allSatisfy { $0.allSatisfy(\.isNumber) }
+    }
+
     /// Format seconds into ps-style etime string.
     private func formatEtime(_ totalSeconds: Int) -> String {
         let s = max(0, totalSeconds)
@@ -278,7 +368,12 @@ class AgentMonitor: ObservableObject {
     }
 
     private func isClaude(_ command: String) -> Bool {
-        command.contains("claude") && (
+        // Native binary: command is "claude" or "claude --flags..."
+        if command == "claude" || command.hasPrefix("claude ") {
+            return true
+        }
+        // Node-based (older versions): look for @anthropic or claude-code in args
+        return command.contains("claude") && (
             command.contains("@anthropic") ||
             command.contains("claude-code") ||
             command.contains("/claude ") ||

@@ -17,7 +17,10 @@ let package = Package(
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "WhisperKit", package: "WhisperKit"),
             ],
-            path: "Sources/CodeFire"
+            path: "Sources/CodeFire",
+            resources: [
+                .copy("Resources/agent-arena.html")
+            ]
         ),
         .executableTarget(
             name: "CodeFireMCP",
