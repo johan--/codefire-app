@@ -1,5 +1,8 @@
-import { Activity, CheckCircle, FileText, Users, GitBranch, Clock, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { Activity, CheckCircle, FileText, Users, GitBranch, Clock, RefreshCw, MessageSquare } from 'lucide-react'
 import { useActivityFeed } from '@renderer/hooks/useActivityFeed'
+import { useSessionSummaries } from '@renderer/hooks/useSessionSummaries'
+import SharedSummaryCard from '@renderer/components/SessionSummary/SharedSummaryCard'
 import type { ActivityEvent } from '@shared/premium-models'
 
 function formatRelativeTime(dateStr: string): string {
@@ -93,10 +96,19 @@ interface ActivityViewProps {
   projectId: string
 }
 
-export default function ActivityView({ projectId }: ActivityViewProps) {
-  const { events, loading, error, refresh } = useActivityFeed(projectId)
+type Tab = 'activity' | 'summaries'
 
-  if (loading && events.length === 0) {
+export default function ActivityView({ projectId }: ActivityViewProps) {
+  const [tab, setTab] = useState<Tab>('activity')
+  const { events, loading: eventsLoading, error: eventsError, refresh: refreshEvents } = useActivityFeed(projectId)
+  const { summaries, loading: summariesLoading, error: summariesError, refresh: refreshSummaries } = useSessionSummaries(projectId)
+
+  const loading = tab === 'activity' ? eventsLoading : summariesLoading
+  const error = tab === 'activity' ? eventsError : summariesError
+  const isEmpty = tab === 'activity' ? events.length === 0 : summaries.length === 0
+  const refresh = tab === 'activity' ? refreshEvents : refreshSummaries
+
+  if (loading && isEmpty) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="w-5 h-5 border-2 border-neutral-700 border-t-codefire-orange rounded-full animate-spin" />
@@ -104,7 +116,7 @@ export default function ActivityView({ projectId }: ActivityViewProps) {
     )
   }
 
-  if (error && events.length === 0) {
+  if (error && isEmpty) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -122,12 +134,29 @@ export default function ActivityView({ projectId }: ActivityViewProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
+      {/* Header with tabs */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800 shrink-0">
-        <div className="flex items-center gap-2">
-          <Activity size={14} className="text-neutral-400" />
-          <span className="text-xs font-medium text-neutral-300">Activity Feed</span>
-          <span className="text-[10px] text-neutral-600">{events.length} events</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTab('activity')}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              tab === 'activity' ? 'text-neutral-200' : 'text-neutral-500 hover:text-neutral-400'
+            }`}
+          >
+            <Activity size={14} />
+            Activity
+            <span className="text-[10px] text-neutral-600">{events.length}</span>
+          </button>
+          <button
+            onClick={() => setTab('summaries')}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              tab === 'summaries' ? 'text-neutral-200' : 'text-neutral-500 hover:text-neutral-400'
+            }`}
+          >
+            <MessageSquare size={14} />
+            Summaries
+            <span className="text-[10px] text-neutral-600">{summaries.length}</span>
+          </button>
         </div>
         <button
           onClick={refresh}
@@ -138,50 +167,70 @@ export default function ActivityView({ projectId }: ActivityViewProps) {
         </button>
       </div>
 
-      {/* Event list */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <Activity size={28} className="text-neutral-700 mb-3" />
-            <p className="text-xs text-neutral-500">No activity yet</p>
-            <p className="text-[10px] text-neutral-600 mt-1">
-              Activity from team members will appear here
-            </p>
-          </div>
+        {tab === 'activity' ? (
+          /* Activity event list */
+          events.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <Activity size={28} className="text-neutral-700 mb-3" />
+              <p className="text-xs text-neutral-500">No activity yet</p>
+              <p className="text-[10px] text-neutral-600 mt-1">
+                Activity from team members will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="px-4 py-2">
+              {events.map((event, index) => (
+                <div key={event.id} className="relative flex gap-3 pb-4">
+                  {/* Timeline line */}
+                  {index < events.length - 1 && (
+                    <div className="absolute left-[13px] top-8 bottom-0 w-px bg-neutral-800" />
+                  )}
+
+                  {/* Avatar */}
+                  <div className="shrink-0 z-10">
+                    <UserAvatar user={event.user} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-neutral-200">
+                        {event.user?.displayName || event.user?.email || 'Unknown'}
+                      </span>
+                      {getEventIcon(event.eventType)}
+                      <span className="text-xs text-neutral-400 truncate">
+                        {getEventDescription(event)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[10px] text-neutral-600">
+                        {formatRelativeTime(event.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : (
-          <div className="px-4 py-2">
-            {events.map((event, index) => (
-              <div key={event.id} className="relative flex gap-3 pb-4">
-                {/* Timeline line */}
-                {index < events.length - 1 && (
-                  <div className="absolute left-[13px] top-8 bottom-0 w-px bg-neutral-800" />
-                )}
-
-                {/* Avatar */}
-                <div className="shrink-0 z-10">
-                  <UserAvatar user={event.user} />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0 pt-0.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-neutral-200">
-                      {event.user?.displayName || event.user?.email || 'Unknown'}
-                    </span>
-                    {getEventIcon(event.eventType)}
-                    <span className="text-xs text-neutral-400 truncate">
-                      {getEventDescription(event)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[10px] text-neutral-600">
-                      {formatRelativeTime(event.createdAt)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          /* Session summaries list */
+          summaries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <MessageSquare size={28} className="text-neutral-700 mb-3" />
+              <p className="text-xs text-neutral-500">No shared summaries yet</p>
+              <p className="text-[10px] text-neutral-600 mt-1">
+                Session summaries shared by team members will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="px-4 py-2 flex flex-col gap-2">
+              {summaries.map((summary) => (
+                <SharedSummaryCard key={summary.id} summary={summary} />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

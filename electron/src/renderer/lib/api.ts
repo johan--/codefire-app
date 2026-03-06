@@ -24,6 +24,9 @@ import type {
   TeamInvite,
   TeamGrant,
   ActivityEvent,
+  SessionSummary,
+  ProjectDoc,
+  ReviewRequest,
   Notification,
   PresenceState,
 } from '@shared/premium-models'
@@ -508,6 +511,21 @@ export const api = {
     getActivityFeed: (projectId: string, limit?: number) =>
       invoke('premium:getActivityFeed', projectId, limit) as Promise<ActivityEvent[]>,
 
+    // Session summaries
+    listSessionSummaries: (projectId: string) =>
+      invoke('premium:listSessionSummaries', projectId) as Promise<SessionSummary[]>,
+    shareSessionSummary: (data: {
+      projectId: string
+      sessionSlug?: string
+      model?: string
+      gitBranch?: string
+      summary: string
+      filesChanged?: string[]
+      durationMins?: number
+      startedAt?: string
+      endedAt?: string
+    }) => invoke('premium:shareSessionSummary', data) as Promise<SessionSummary>,
+
     // Presence
     joinPresence: (projectId: string) =>
       invoke('premium:joinPresence', projectId) as Promise<void>,
@@ -515,6 +533,26 @@ export const api = {
       invoke('premium:leavePresence', projectId) as Promise<void>,
     getPresence: (projectId: string) =>
       invoke('premium:getPresence', projectId) as Promise<PresenceState[]>,
+
+    // Project Docs (Wiki)
+    listProjectDocs: (projectId: string) =>
+      invoke('premium:listProjectDocs', projectId) as Promise<ProjectDoc[]>,
+    getProjectDoc: (docId: string) =>
+      invoke('premium:getProjectDoc', docId) as Promise<ProjectDoc | null>,
+    createProjectDoc: (data: { projectId: string; title: string; content: string }) =>
+      invoke('premium:createProjectDoc', data) as Promise<ProjectDoc>,
+    updateProjectDoc: (docId: string, data: { title?: string; content?: string }) =>
+      invoke('premium:updateProjectDoc', docId, data) as Promise<ProjectDoc>,
+    deleteProjectDoc: (docId: string) =>
+      invoke('premium:deleteProjectDoc', docId) as Promise<void>,
+
+    // Review requests
+    requestReview: (data: { projectId: string; taskId: string; assignedTo: string; comment?: string }) =>
+      invoke('premium:requestReview', data) as Promise<ReviewRequest>,
+    resolveReview: (reviewId: string, status: string) =>
+      invoke('premium:resolveReview', reviewId, status) as Promise<ReviewRequest>,
+    listReviewRequests: (projectId: string) =>
+      invoke('premium:listReviewRequests', projectId) as Promise<ReviewRequest[]>,
 
     // Admin
     isSuperAdmin: () => invoke('premium:admin:isSuperAdmin') as Promise<boolean>,
