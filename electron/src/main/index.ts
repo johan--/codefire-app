@@ -16,6 +16,8 @@ import { ContextEngine } from './services/ContextEngine'
 import { EmbeddingClient } from './services/EmbeddingClient'
 import { BrowserCommandExecutor } from './services/BrowserCommandExecutor'
 import { LiveSessionWatcher } from './services/LiveSessionWatcher'
+import { FileWatcher } from './services/FileWatcher'
+import { ProjectDAO } from './database/dao/ProjectDAO'
 
 // Prevent crashes from uncaught errors
 process.on('uncaughtException', (err) => {
@@ -55,6 +57,23 @@ const mcpManager = new MCPServerManager()
 const embeddingClient = new EmbeddingClient(config.openRouterKey || undefined)
 const searchEngine = new SearchEngine(db, embeddingClient)
 const contextEngine = new ContextEngine(db)
+
+// Initialize file watcher for incremental search index updates
+const fileWatcher = new FileWatcher()
+const projectDAO = new ProjectDAO(db)
+
+fileWatcher.onFilesChanged = (projectId: string, changedPaths: string[]) => {
+  const project = projectDAO.getById(projectId)
+  if (!project) return
+
+  console.log(`[FileWatcher] Re-indexing ${changedPaths.length} changed file(s) in project ${projectId}`)
+  for (const absPath of changedPaths) {
+    const relativePath = path.relative(project.path, absPath)
+    contextEngine.indexFile(projectId, project.path, relativePath).catch((err) => {
+      console.error(`[FileWatcher] Failed to re-index ${relativePath}:`, err)
+    })
+  }
+}
 
 // Initialize browser command executor (polls browserCommands table for MCP browser tools)
 let browserExecutor: BrowserCommandExecutor | null = null
@@ -117,7 +136,7 @@ app.on('open-url', (event, url) => {
 })
 
 // Register all IPC handlers (including window, terminal, and git management)
-registerAllHandlers(db, windowManager, terminalService, gitService, undefined, gmailService, searchEngine, contextEngine, mcpManager)
+registerAllHandlers(db, windowManager, terminalService, gitService, undefined, gmailService, searchEngine, contextEngine, mcpManager, fileWatcher)
 
 // Register Agent Arena handler
 import { openAgentArena } from './windows/AgentArenaWindow'
@@ -248,6 +267,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  fileWatcher.unwatchAll()
   liveWatcher.stop()
   if (browserExecutor) browserExecutor.stop()
   trayManager.destroy()
