@@ -203,6 +203,7 @@ private struct ContextEngineSettingsTab: View {
         ("minimax/minimax-m2.5", "MiniMax M2.5"),
         ("z-ai/glm-5", "GLM-5"),
         ("moonshotai/kimi-k2.5", "Kimi K2.5"),
+        ("openai/gpt-5.4", "GPT-5.4"),
     ]
 
     var body: some View {
