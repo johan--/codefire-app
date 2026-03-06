@@ -2,12 +2,14 @@ import { ipcMain } from 'electron'
 import type { AuthService } from '../services/premium/AuthService'
 import type { TeamService } from '../services/premium/TeamService'
 import type { SyncEngine } from '../services/premium/SyncEngine'
+import type { PresenceService } from '../services/premium/PresenceService'
 import { getSupabaseClient } from '../services/premium/SupabaseClient'
 
 export function registerPremiumHandlers(
   authService: AuthService,
   teamService: TeamService,
-  syncEngine: SyncEngine
+  syncEngine: SyncEngine,
+  presenceService: PresenceService
 ) {
   // Auth
   ipcMain.handle('premium:getStatus', () => authService.getStatus())
@@ -59,6 +61,72 @@ export function registerPremiumHandlers(
     })
     if (error) throw error
     return data
+  })
+
+  // Notifications
+  ipcMain.handle('premium:getNotifications', async (_e, limit?: number) => {
+    const client = getSupabaseClient()
+    if (!client) return []
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) return []
+    const { data } = await client
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit || 50)
+    return data || []
+  })
+
+  ipcMain.handle('premium:markNotificationRead', async (_e, notificationId: string) => {
+    const client = getSupabaseClient()
+    if (!client) return
+    await client.from('notifications').update({ is_read: true }).eq('id', notificationId)
+  })
+
+  ipcMain.handle('premium:markAllNotificationsRead', async () => {
+    const client = getSupabaseClient()
+    if (!client) return
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) return
+    await client.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false)
+  })
+
+  // Activity feed
+  ipcMain.handle('premium:getActivityFeed', async (_e, projectId: string, limit?: number) => {
+    const client = getSupabaseClient()
+    if (!client) return []
+    const { data } = await client
+      .from('activity_events')
+      .select('*, user:users(id, email, display_name, avatar_url)')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(limit || 50)
+    return data || []
+  })
+
+  // Presence
+  ipcMain.handle('premium:joinPresence', async (_e, projectId: string) => {
+    const client = getSupabaseClient()
+    if (!client) return
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) return
+    const { data: profile } = await client.from('users').select('display_name').eq('id', user.id).single()
+    await presenceService.joinProject(projectId, {
+      userId: user.id,
+      displayName: profile?.display_name || user.email || 'Unknown',
+      activeFile: null,
+      gitBranch: null,
+      onlineAt: new Date().toISOString(),
+    })
+  })
+
+  ipcMain.handle('premium:leavePresence', async (_e, projectId: string) => {
+    await presenceService.leaveProject(projectId)
+  })
+
+  ipcMain.handle('premium:getPresence', (_e, projectId: string) => {
+    return presenceService.getPresence(projectId)
   })
 
   // ─── Super Admin ─────────────────────────────────────────────────────────────

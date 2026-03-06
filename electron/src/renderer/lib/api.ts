@@ -23,6 +23,9 @@ import type {
   TeamMember,
   TeamInvite,
   TeamGrant,
+  ActivityEvent,
+  Notification,
+  PresenceState,
 } from '@shared/premium-models'
 
 const invoke = window.api.invoke
@@ -492,6 +495,26 @@ export const api = {
       invoke('premium:createCheckout', teamId, plan, extraSeats) as Promise<{ url: string }>,
     getBillingPortal: (teamId: string) =>
       invoke('premium:getBillingPortal', teamId) as Promise<{ url: string }>,
+
+    // Notifications
+    getNotifications: (limit?: number) =>
+      invoke('premium:getNotifications', limit) as Promise<Notification[]>,
+    markNotificationRead: (notificationId: string) =>
+      invoke('premium:markNotificationRead', notificationId) as Promise<void>,
+    markAllNotificationsRead: () =>
+      invoke('premium:markAllNotificationsRead') as Promise<void>,
+
+    // Activity feed
+    getActivityFeed: (projectId: string, limit?: number) =>
+      invoke('premium:getActivityFeed', projectId, limit) as Promise<ActivityEvent[]>,
+
+    // Presence
+    joinPresence: (projectId: string) =>
+      invoke('premium:joinPresence', projectId) as Promise<void>,
+    leavePresence: (projectId: string) =>
+      invoke('premium:leavePresence', projectId) as Promise<void>,
+    getPresence: (projectId: string) =>
+      invoke('premium:getPresence', projectId) as Promise<PresenceState[]>,
 
     // Admin
     isSuperAdmin: () => invoke('premium:admin:isSuperAdmin') as Promise<boolean>,

@@ -162,6 +162,8 @@ export type PremiumChannel =
   | 'premium:requestReview'
   | 'premium:resolveReview'
   | 'premium:listReviewRequests'
+  | 'premium:joinPresence'
+  | 'premium:leavePresence'
   | 'premium:getPresence'
   | 'premium:getBillingPortalUrl'
   | 'premium:createCheckoutSession'
