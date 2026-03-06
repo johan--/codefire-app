@@ -22,6 +22,7 @@ import type {
   Team,
   TeamMember,
   TeamInvite,
+  TeamGrant,
 } from '@shared/premium-models'
 
 const invoke = window.api.invoke
@@ -487,6 +488,22 @@ export const api = {
       invoke('premium:syncProject', teamId, projectId, name, repoUrl) as Promise<void>,
     unsyncProject: (projectId: string) =>
       invoke('premium:unsyncProject', projectId) as Promise<void>,
+    createCheckout: (teamId: string, plan: 'starter' | 'agency', extraSeats?: number) =>
+      invoke('premium:createCheckout', teamId, plan, extraSeats) as Promise<{ url: string }>,
+    getBillingPortal: (teamId: string) =>
+      invoke('premium:getBillingPortal', teamId) as Promise<{ url: string }>,
+
+    // Admin
+    isSuperAdmin: () => invoke('premium:admin:isSuperAdmin') as Promise<boolean>,
+    searchUsers: (email: string) =>
+      invoke('premium:admin:searchUsers', email) as Promise<Array<{ id: string; email: string; display_name: string }>>,
+    listGrants: () => invoke('premium:admin:listGrants') as Promise<TeamGrant[]>,
+    createGrant: (grant: {
+      teamId: string; grantType: string; planTier: string;
+      seatLimit?: number; projectLimit?: number; repoUrl?: string;
+      note?: string; expiresAt?: string;
+    }) => invoke('premium:admin:grantTeam', grant) as Promise<TeamGrant>,
+    revokeGrant: (grantId: string) => invoke('premium:admin:revokeGrant', grantId) as Promise<void>,
   },
 
   github: {

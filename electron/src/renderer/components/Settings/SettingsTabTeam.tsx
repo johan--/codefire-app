@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Users, UserPlus, Shield, Crown, LogOut, AlertCircle, Loader2, Trash2 } from 'lucide-react'
+import { Users, UserPlus, Shield, Crown, LogOut, AlertCircle, Loader2, Trash2, CreditCard, Zap } from 'lucide-react'
 import type { AppConfig } from '@shared/models'
 import { Section, Toggle, TextInput } from './SettingsField'
 import { usePremium } from '../../hooks/usePremium'
+import { api } from '../../lib/api'
 
 interface Props {
   config: AppConfig
@@ -25,6 +26,9 @@ export default function SettingsTabTeam({ config, onChange }: Props) {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member')
   const [submitting, setSubmitting] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'agency'>('starter')
+  const [extraSeats, setExtraSeats] = useState(0)
+  const [billingLoading, setBillingLoading] = useState(false)
 
   if (!config.premiumEnabled) {
     return (
@@ -261,6 +265,130 @@ export default function SettingsTabTeam({ config, onChange }: Props) {
                 </div>
               )}
             </div>
+
+            {/* Billing: Subscribe or Manage */}
+            {status.subscriptionActive ? (
+              <button
+                onClick={async () => {
+                  if (!status.team) return
+                  setBillingLoading(true)
+                  try {
+                    const { url } = await api.premium.getBillingPortal(status.team.id)
+                    window.api.invoke('shell:openExternal', url)
+                  } catch (err: any) {
+                    console.error('Failed to open billing portal:', err)
+                  } finally {
+                    setBillingLoading(false)
+                  }
+                }}
+                disabled={billingLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-neutral-700/50
+                           text-neutral-300 hover:bg-neutral-700 transition-colors font-medium disabled:opacity-50"
+              >
+                <CreditCard className="w-3 h-3" />
+                {billingLoading ? 'Opening...' : 'Manage Billing'}
+              </button>
+            ) : !status.grant ? (
+              <div className="space-y-3 mt-2 rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
+                <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">Subscribe</p>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedPlan('starter')}
+                    className={`flex-1 rounded-lg border p-3 text-left transition-colors ${
+                      selectedPlan === 'starter'
+                        ? 'border-codefire-orange bg-codefire-orange/10'
+                        : 'border-neutral-700 hover:border-neutral-600'
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-neutral-200">Starter</p>
+                    <p className="text-[10px] text-neutral-500">$9/mo</p>
+                  </button>
+                  <button
+                    onClick={() => setSelectedPlan('agency')}
+                    className={`flex-1 rounded-lg border p-3 text-left transition-colors ${
+                      selectedPlan === 'agency'
+                        ? 'border-codefire-orange bg-codefire-orange/10'
+                        : 'border-neutral-700 hover:border-neutral-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-medium text-neutral-200">Agency</p>
+                      <Zap className="w-3 h-3 text-codefire-orange" />
+                    </div>
+                    <p className="text-[10px] text-neutral-500">$40/mo</p>
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-neutral-500">
+                    Extra seats: {extraSeats}
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={20}
+                    value={extraSeats}
+                    onChange={(e) => setExtraSeats(Number(e.target.value))}
+                    className="w-full accent-codefire-orange"
+                  />
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (!status.team) return
+                    setBillingLoading(true)
+                    try {
+                      const { url } = await api.premium.createCheckout(status.team.id, selectedPlan, extraSeats)
+                      window.api.invoke('shell:openExternal', url)
+                    } catch (err: any) {
+                      console.error('Failed to create checkout:', err)
+                    } finally {
+                      setBillingLoading(false)
+                    }
+                  }}
+                  disabled={billingLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-codefire-orange/20
+                             text-codefire-orange hover:bg-codefire-orange/30 transition-colors
+                             font-medium disabled:opacity-50"
+                >
+                  <CreditCard className="w-3 h-3" />
+                  {billingLoading ? 'Opening...' : 'Subscribe'}
+                </button>
+              </div>
+            ) : null}
+
+            {/* Upgrade prompt: on Starter with subscription, suggest Agency */}
+            {status.subscriptionActive && status.team?.plan === 'starter' && (
+              <div className="flex items-center gap-2 mt-2 rounded-lg border border-codefire-orange/30 bg-codefire-orange/5 p-3">
+                <Zap className="w-4 h-4 text-codefire-orange shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs text-neutral-200 font-medium">Upgrade to Agency</p>
+                  <p className="text-[10px] text-neutral-500">
+                    More seats, unlimited projects, and priority support.
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!status.team) return
+                    setBillingLoading(true)
+                    try {
+                      const { url } = await api.premium.createCheckout(status.team.id, 'agency')
+                      window.api.invoke('shell:openExternal', url)
+                    } catch (err: any) {
+                      console.error('Failed to create checkout:', err)
+                    } finally {
+                      setBillingLoading(false)
+                    }
+                  }}
+                  disabled={billingLoading}
+                  className="px-3 py-1.5 rounded text-xs bg-codefire-orange/20 text-codefire-orange
+                             hover:bg-codefire-orange/30 transition-colors font-medium disabled:opacity-50 shrink-0"
+                >
+                  Upgrade
+                </button>
+              </div>
+            )}
           </Section>
 
           <Section title="Members">

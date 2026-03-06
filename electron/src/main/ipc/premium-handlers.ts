@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import type { AuthService } from '../services/premium/AuthService'
 import type { TeamService } from '../services/premium/TeamService'
 import type { SyncEngine } from '../services/premium/SyncEngine'
+import { getSupabaseClient } from '../services/premium/SupabaseClient'
 
 export function registerPremiumHandlers(
   authService: AuthService,
@@ -37,5 +38,87 @@ export function registerPremiumHandlers(
   ipcMain.handle('premium:unsyncProject', (_e, projectId: string) => {
     syncEngine.unsubscribeFromProject(projectId)
     return teamService.unsyncProject(projectId)
+  })
+
+  // Billing
+  ipcMain.handle('premium:createCheckout', async (_e, teamId: string, plan: string, extraSeats?: number) => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Premium not configured')
+    const { data, error } = await client.functions.invoke('create-checkout', {
+      body: { teamId, plan, extraSeats: extraSeats || 0 }
+    })
+    if (error) throw error
+    return data
+  })
+
+  ipcMain.handle('premium:getBillingPortal', async (_e, teamId: string) => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Premium not configured')
+    const { data, error } = await client.functions.invoke('billing-portal', {
+      body: { teamId }
+    })
+    if (error) throw error
+    return data
+  })
+
+  // ─── Super Admin ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle('premium:admin:isSuperAdmin', async () => {
+    const client = getSupabaseClient()
+    if (!client) return false
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) return false
+    const { data } = await client.from('super_admins').select('user_id').eq('user_id', user.id).single()
+    return !!data
+  })
+
+  ipcMain.handle('premium:admin:searchUsers', async (_e, email: string) => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Not configured')
+    const { data } = await client.from('users').select('id, email, display_name').ilike('email', `%${email}%`).limit(10)
+    return data || []
+  })
+
+  ipcMain.handle('premium:admin:listGrants', async () => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Not configured')
+    const { data } = await client.from('team_grants').select('*').order('created_at', { ascending: false })
+    return data || []
+  })
+
+  ipcMain.handle('premium:admin:grantTeam', async (_e, grant: {
+    teamId: string
+    grantType: string
+    planTier: string
+    seatLimit?: number
+    projectLimit?: number
+    repoUrl?: string
+    note?: string
+    expiresAt?: string
+  }) => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Not configured')
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+    const { data, error } = await client.from('team_grants').insert({
+      team_id: grant.teamId,
+      grant_type: grant.grantType,
+      plan_tier: grant.planTier,
+      seat_limit: grant.seatLimit || null,
+      project_limit: grant.projectLimit || null,
+      repo_url: grant.repoUrl || null,
+      note: grant.note || null,
+      expires_at: grant.expiresAt || null,
+      granted_by: user.id,
+    }).select().single()
+    if (error) throw error
+    return data
+  })
+
+  ipcMain.handle('premium:admin:revokeGrant', async (_e, grantId: string) => {
+    const client = getSupabaseClient()
+    if (!client) throw new Error('Not configured')
+    const { error } = await client.from('team_grants').delete().eq('id', grantId)
+    if (error) throw error
   })
 }
