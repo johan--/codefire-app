@@ -2,6 +2,8 @@ import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, session
 import path from 'path'
 import { getDatabase, closeDatabase } from './database/connection'
 import { registerAllHandlers } from './ipc'
+import { registerSearchHandlers } from './ipc/search-handlers'
+import { registerGmailHandlers } from './ipc/gmail-handlers'
 import { WindowManager } from './windows/WindowManager'
 import { TrayManager } from './windows/TrayManager'
 import { TerminalService } from './services/TerminalService'
@@ -40,46 +42,63 @@ const trayManager = new TrayManager(windowManager)
 const terminalService = new TerminalService()
 const gitService = new GitService()
 
-// Initialize Gmail service from config store or env vars
-let gmailService: GmailService | undefined
+// Read config early (lightweight)
 const config = readConfig()
-const googleClientId = config.googleClientId || process.env.GOOGLE_CLIENT_ID
-const googleClientSecret = config.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET
-if (googleClientId && googleClientSecret) {
-  const oauth = new GoogleOAuth(googleClientId, googleClientSecret)
-  gmailService = new GmailService(db, oauth)
-}
 
 // Initialize MCP server manager (polls for active MCP connections)
 const mcpManager = new MCPServerManager()
 
-// Initialize search and context engines for code indexing
-const embeddingClient = new EmbeddingClient(config.openRouterKey || undefined)
-const searchEngine = new SearchEngine(db, embeddingClient)
-const contextEngine = new ContextEngine(db)
-
-// Initialize file watcher for incremental search index updates
-const fileWatcher = new FileWatcher()
-const projectDAO = new ProjectDAO(db)
-
-fileWatcher.onFilesChanged = (projectId: string, changedPaths: string[]) => {
-  const project = projectDAO.getById(projectId)
-  if (!project) return
-
-  console.log(`[FileWatcher] Re-indexing ${changedPaths.length} changed file(s) in project ${projectId}`)
-  for (const absPath of changedPaths) {
-    const relativePath = path.relative(project.path, absPath)
-    contextEngine.indexFile(projectId, project.path, relativePath).catch((err) => {
-      console.error(`[FileWatcher] Failed to re-index ${relativePath}:`, err)
-    })
-  }
-}
-
-// Initialize browser command executor (polls browserCommands table for MCP browser tools)
+// Deferred services — initialized after window shows for faster startup
+let gmailService: GmailService | undefined
+let searchEngine: SearchEngine
+let contextEngine: ContextEngine
+let fileWatcher: FileWatcher
 let browserExecutor: BrowserCommandExecutor | null = null
+let liveWatcher: LiveSessionWatcher
 
-// Initialize live session watcher (polls active Claude Code JSONL files every 2s)
-const liveWatcher = new LiveSessionWatcher()
+function initDeferredServices() {
+  // Gmail
+  const googleClientId = config.googleClientId || process.env.GOOGLE_CLIENT_ID
+  const googleClientSecret = config.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET
+  if (googleClientId && googleClientSecret) {
+    const oauth = new GoogleOAuth(googleClientId, googleClientSecret)
+    gmailService = new GmailService(db, oauth)
+  }
+
+  // Search and context engines
+  const embeddingClient = new EmbeddingClient(config.openRouterKey || undefined)
+  searchEngine = new SearchEngine(db, embeddingClient)
+  contextEngine = new ContextEngine(db)
+
+  // File watcher for incremental index updates
+  fileWatcher = new FileWatcher()
+  const projectDAO = new ProjectDAO(db)
+
+  fileWatcher.onFilesChanged = (projectId: string, changedPaths: string[]) => {
+    const project = projectDAO.getById(projectId)
+    if (!project) return
+
+    console.log(`[FileWatcher] Re-indexing ${changedPaths.length} changed file(s) in project ${projectId}`)
+    for (const absPath of changedPaths) {
+      const relativePath = path.relative(project.path, absPath)
+      contextEngine.indexFile(projectId, project.path, relativePath).catch((err) => {
+        console.error(`[FileWatcher] Failed to re-index ${relativePath}:`, err)
+      })
+    }
+  }
+
+  // Browser command executor
+  browserExecutor = new BrowserCommandExecutor(db)
+  browserExecutor.start()
+
+  // Live session watcher
+  liveWatcher = new LiveSessionWatcher()
+  liveWatcher.start()
+
+  // Register deferred IPC handlers
+  registerSearchHandlers(db, searchEngine, contextEngine)
+  if (gmailService) registerGmailHandlers(gmailService)
+}
 
 // Initialize deep link service and register codefire:// protocol
 const deepLinkService = new DeepLinkService()
@@ -135,8 +154,8 @@ app.on('open-url', (event, url) => {
   handleDeepLinkURL(url)
 })
 
-// Register all IPC handlers (including window, terminal, and git management)
-registerAllHandlers(db, windowManager, terminalService, gitService, undefined, gmailService, searchEngine, contextEngine, mcpManager, fileWatcher)
+// Register essential IPC handlers immediately (db, window, terminal, git, MCP)
+registerAllHandlers(db, windowManager, terminalService, gitService, undefined, undefined, undefined, undefined, mcpManager, undefined)
 
 // Register Agent Arena handler
 import { openAgentArena } from './windows/AgentArenaWindow'
@@ -198,13 +217,6 @@ app.whenReady().then(() => {
 
   const mainWin = windowManager.createMainWindow()
 
-  // Start browser command executor for MCP browser tools
-  browserExecutor = new BrowserCommandExecutor(db)
-  browserExecutor.start()
-
-  // Start live session watcher for real-time Claude Code session monitoring
-  liveWatcher.start()
-
   // Global shortcut: Ctrl+Shift+H to show/focus the planner window
   globalShortcut.register('CommandOrControl+Shift+H', () => {
     const win = windowManager.getMainWindow()
@@ -213,6 +225,11 @@ app.whenReady().then(() => {
       win.show()
       win.focus()
     }
+  })
+
+  // Defer heavy service init until after window is visible
+  mainWin.once('ready-to-show', () => {
+    setTimeout(() => initDeferredServices(), 100)
   })
 
   // Auto-recover from renderer crashes
@@ -267,8 +284,8 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true
-  fileWatcher.unwatchAll()
-  liveWatcher.stop()
+  if (fileWatcher) fileWatcher.unwatchAll()
+  if (liveWatcher) liveWatcher.stop()
   if (browserExecutor) browserExecutor.stop()
   trayManager.destroy()
   terminalService.killAll()

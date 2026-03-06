@@ -1,27 +1,31 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Project } from '@shared/models'
 import { api } from '@renderer/lib/api'
 import TerminalPanel from '@renderer/components/Terminal/TerminalPanel'
 import TabBar from '@renderer/components/TabBar/TabBar'
-import DashboardView from '@renderer/views/DashboardView'
-import SessionsView from '@renderer/views/SessionsView'
-import TasksView from '@renderer/views/TasksView'
-import NotesView from '@renderer/views/NotesView'
-import FilesView from '@renderer/views/FilesView'
-import MemoryView from '@renderer/views/MemoryView'
-import ServicesView from '@renderer/views/ServicesView'
-import RulesView from '@renderer/views/RulesView'
-import GitView from '@renderer/views/GitView'
-import ImagesView from '@renderer/views/ImagesView'
-import RecordingsView from '@renderer/views/RecordingsView'
-import BrowserView from '@renderer/views/BrowserView'
-import VisualizerView from '@renderer/views/VisualizerView'
 import CodeFireChat from '@renderer/components/Chat/CodeFireChat'
 import BriefingDrawer from '@renderer/components/Dashboard/BriefingDrawer'
 import AgentStatusBar from '@renderer/components/StatusBar/AgentStatusBar'
 import { ProjectHeaderLeft, ProjectHeaderRight } from '@renderer/components/Header/ProjectHeaderBar'
 import { useMCPStatus } from '@renderer/hooks/useMCPStatus'
+
+// Eager: default tab (Tasks) and lightweight views
+import TasksView from '@renderer/views/TasksView'
+import DashboardView from '@renderer/views/DashboardView'
+import NotesView from '@renderer/views/NotesView'
+
+// Lazy: heavy views (CodeMirror, xterm, markdown editor, browser webview)
+const SessionsView = lazy(() => import('@renderer/views/SessionsView'))
+const FilesView = lazy(() => import('@renderer/views/FilesView'))
+const MemoryView = lazy(() => import('@renderer/views/MemoryView'))
+const ServicesView = lazy(() => import('@renderer/views/ServicesView'))
+const RulesView = lazy(() => import('@renderer/views/RulesView'))
+const GitView = lazy(() => import('@renderer/views/GitView'))
+const ImagesView = lazy(() => import('@renderer/views/ImagesView'))
+const RecordingsView = lazy(() => import('@renderer/views/RecordingsView'))
+const BrowserView = lazy(() => import('@renderer/views/BrowserView'))
+const VisualizerView = lazy(() => import('@renderer/views/VisualizerView'))
 
 interface ProjectLayoutProps {
   projectId: string
@@ -107,42 +111,44 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
     )
   }
 
+  const lazyFallback = (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-5 h-5 border-2 border-neutral-700 border-t-codefire-orange rounded-full animate-spin" />
+    </div>
+  )
+
   function renderActiveView(tab: string, pid: string, onTabChange: (t: string) => void) {
+    // Eager-loaded views (default tab + lightweight)
     switch (tab) {
-      case 'Details':
-        return <DashboardView projectId={pid} onTabChange={onTabChange} />
-      case 'Sessions':
-        return <SessionsView projectId={pid} />
       case 'Tasks':
         return <TasksView projectId={pid} />
+      case 'Details':
+        return <DashboardView projectId={pid} onTabChange={onTabChange} />
       case 'Notes':
         return <NotesView projectId={pid} />
-      case 'Files':
-        return <FilesView projectId={pid} projectPath={project!.path} />
-      case 'Memory':
-        return <MemoryView projectId={pid} projectPath={project!.path} />
-      case 'Services':
-        return <ServicesView projectId={pid} projectPath={project!.path} />
-      case 'Rules':
-        return <RulesView projectId={pid} projectPath={project!.path} />
-      case 'Git':
-        return <GitView projectId={pid} projectPath={project!.path} />
-      case 'Images':
-        return <ImagesView projectId={pid} />
-      case 'Recordings':
-        return <RecordingsView projectId={pid} />
-      case 'Browser':
-        return <BrowserView projectId={pid} />
-      case 'Visualizer':
-        return <VisualizerView projectId={pid} projectPath={project!.path} />
-      default:
-        return (
+    }
+
+    // Lazy-loaded views (heavy dependencies)
+    return (
+      <Suspense fallback={lazyFallback}>
+        {tab === 'Sessions' && <SessionsView projectId={pid} />}
+        {tab === 'Files' && <FilesView projectId={pid} projectPath={project!.path} />}
+        {tab === 'Memory' && <MemoryView projectId={pid} projectPath={project!.path} />}
+        {tab === 'Services' && <ServicesView projectId={pid} projectPath={project!.path} />}
+        {tab === 'Rules' && <RulesView projectId={pid} projectPath={project!.path} />}
+        {tab === 'Git' && <GitView projectId={pid} projectPath={project!.path} />}
+        {tab === 'Images' && <ImagesView projectId={pid} />}
+        {tab === 'Recordings' && <RecordingsView projectId={pid} />}
+        {tab === 'Browser' && <BrowserView projectId={pid} />}
+        {tab === 'Visualizer' && <VisualizerView projectId={pid} projectPath={project!.path} />}
+        {!['Sessions','Files','Memory','Services','Rules','Git','Images','Recordings','Browser','Visualizer'].includes(tab) && (
           <div className="flex-1 p-4 overflow-y-auto">
             <h2 className="text-title text-neutral-300">{tab}</h2>
             <p className="text-sm text-neutral-600 mt-1">Coming soon</p>
           </div>
-        )
-    }
+        )}
+      </Suspense>
+    )
   }
 
   function renderTerminalChat() {

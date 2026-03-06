@@ -1,4 +1,4 @@
-import * as Icons from 'lucide-react'
+import { Box, Cloud, Database, Globe, Mail, Server, Shield, Zap, Code, Terminal, Settings, Key } from 'lucide-react'
 import type { LucideProps } from 'lucide-react'
 import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 
@@ -11,13 +11,12 @@ interface ServiceCardProps {
 
 type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>
 
+const iconMap: Record<string, LucideIcon> = {
+  Box, Cloud, Database, Globe, Mail, Server, Shield, Zap, Code, Terminal, Settings, Key,
+}
+
 function getIcon(iconName: string): LucideIcon {
-  const lookup = Icons as Record<string, unknown>
-  const icon = lookup[iconName]
-  if (icon && typeof icon === 'object' && 'render' in icon) {
-    return icon as unknown as LucideIcon
-  }
-  return Icons.Box
+  return iconMap[iconName] ?? Box
 }
 
 export default function ServiceCard({ name, configFile, dashboardUrl, icon }: ServiceCardProps) {
