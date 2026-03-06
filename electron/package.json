@@ -1,6 +1,6 @@
 {
   "name": "codefire-electron",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "CodeFire — Cross-platform companion for AI coding CLIs",
   "main": "dist-electron/main/index.js",
   "author": {
@@ -18,7 +18,8 @@
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "dist:all": "npm run build && electron-builder --win --linux",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:all": "npm run build && electron-builder --win --linux --mac",
     "postinstall": "electron-rebuild --only=better-sqlite3 && node scripts/patch-vite-plugin-electron.js"
   },
   "dependencies": {
@@ -71,7 +72,7 @@
     "vitest": "^4.0.18"
   },
   "build": {
-    "appId": "com.codefire.app",
+    "appId": "com.codefire.electron",
     "productName": "CodeFire",
     "publish": null,
     "directories": {
@@ -80,7 +81,31 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/lucide-react/**",
+      "!node_modules/@codemirror/**",
+      "!node_modules/codemirror/**",
+      "!node_modules/@lezer/**",
+      "!node_modules/@xterm/**",
+      "!node_modules/@uiw/**",
+      "!node_modules/@dnd-kit/**",
+      "!node_modules/react/**",
+      "!node_modules/react-dom/**",
+      "!node_modules/react-resizable-panels/**",
+      "!node_modules/react-markdown/**",
+      "!node_modules/refractor/**",
+      "!node_modules/rehype*/**",
+      "!node_modules/remark*/**",
+      "!node_modules/micromark*/**",
+      "!node_modules/mdast*/**",
+      "!node_modules/hast*/**",
+      "!node_modules/unified/**",
+      "!node_modules/unist*/**",
+      "!node_modules/vfile*/**",
+      "!node_modules/scheduler/**",
+      "!node_modules/style-mod/**",
+      "!node_modules/crelt/**",
+      "!node_modules/w3c-keyname/**"
     ],
     "extraResources": [
       {
@@ -123,6 +148,28 @@
       "createStartMenuShortcut": true,
       "shortcutName": "CodeFire",
       "allowElevation": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": null
+    },
+    "dmg": {
+      "title": "${productName}",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
     },
     "linux": {
       "target": [

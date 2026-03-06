@@ -151,6 +151,94 @@ export default function BrowserView({ projectId }: BrowserViewProps) {
     return webviewRefs.current.get(activeTabId) as any
   }, [activeTabId])
 
+  // Handle MCP browser commands from the main process
+  useEffect(() => {
+    const cleanup = window.api.on('browser:commandRequest', async (data: any) => {
+      const { id, tool, args } = data
+      const resultChannel = `browser:commandResult:${id}`
+
+      try {
+        const wv = webviewRefs.current.get(activeTabId) as any
+        let result: any
+
+        switch (tool) {
+          case 'browser_navigate': {
+            if (!wv) throw new Error('No active webview')
+            await new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('Navigation timed out')), 30_000)
+              const onStop = () => { clearTimeout(timeout); resolve() }
+              wv.addEventListener('did-stop-loading', onStop, { once: true })
+              wv.loadURL(args.url)
+            })
+            result = { success: true, url: args.url }
+            break
+          }
+          case 'browser_snapshot': {
+            if (!wv) throw new Error('No active webview')
+            const html = await wv.executeJavaScript('document.documentElement.outerHTML')
+            const maxSize = args.max_size || 50000
+            result = { html: html.slice(0, maxSize) }
+            break
+          }
+          case 'browser_screenshot': {
+            if (!wv) throw new Error('No active webview')
+            const img = await wv.capturePage()
+            result = { image: img.toDataURL() }
+            break
+          }
+          case 'browser_click': {
+            if (!wv) throw new Error('No active webview')
+            const clickResult = await wv.executeJavaScript(`
+              (() => {
+                const el = document.querySelector('[data-ref="${args.ref}"]');
+                if (!el) return { error: 'Element not found with ref: ${args.ref}' };
+                el.click();
+                return { success: true };
+              })()
+            `)
+            if (clickResult.error) throw new Error(clickResult.error)
+            result = clickResult
+            break
+          }
+          case 'browser_type': {
+            if (!wv) throw new Error('No active webview')
+            const typeResult = await wv.executeJavaScript(`
+              (() => {
+                const el = document.querySelector('[data-ref="${args.ref}"]');
+                if (!el) return { error: 'Element not found with ref: ${args.ref}' };
+                el.value = ${JSON.stringify(args.text || '')};
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                return { success: true };
+              })()
+            `)
+            if (typeResult.error) throw new Error(typeResult.error)
+            result = typeResult
+            break
+          }
+          case 'browser_eval': {
+            if (!wv) throw new Error('No active webview')
+            const evalResult = await wv.executeJavaScript(args.expression || args.code || '')
+            result = { value: evalResult }
+            break
+          }
+          case 'browser_console_logs': {
+            result = { entries: consoleEntries }
+            break
+          }
+          default:
+            throw new Error(`Unsupported browser command: ${tool}`)
+        }
+
+        window.api.send(resultChannel, result)
+      } catch (err: any) {
+        window.api.send(resultChannel, { error: err.message || String(err) })
+      }
+    })
+
+    return cleanup
+  }, [activeTabId, consoleEntries])
+
   function handleNavigate(url: string) {
     // Normalize URL
     let normalized = url.trim()

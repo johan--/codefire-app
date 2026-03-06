@@ -150,7 +150,9 @@ export default function SettingsTabEngine({ config, onChange }: Props) {
             { value: 'qwen/qwen3-coder-next', label: 'Qwen3 Coder Next' },
             { value: 'deepseek/deepseek-v3.2', label: 'DeepSeek V3.2' },
             { value: 'minimax/minimax-m2.5', label: 'MiniMax M2.5' },
+            { value: 'z-ai/glm-5', label: 'GLM-5' },
             { value: 'moonshotai/kimi-k2.5', label: 'Kimi K2.5' },
+            { value: 'openai/gpt-5.4', label: 'GPT-5.4' },
           ]}
         />
         <Select

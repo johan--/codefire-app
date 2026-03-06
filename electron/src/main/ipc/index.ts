@@ -30,6 +30,7 @@ import type { GmailService } from '../services/GmailService'
 import type { SearchEngine } from '../services/SearchEngine'
 import type { ContextEngine } from '../services/ContextEngine'
 import type { MCPServerManager } from '../services/MCPServerManager'
+import type { FileWatcher } from '../services/FileWatcher'
 
 export function registerAllHandlers(
   db: Database.Database,
@@ -40,7 +41,8 @@ export function registerAllHandlers(
   gmailService?: GmailService,
   searchEngine?: SearchEngine,
   contextEngine?: ContextEngine,
-  mcpManager?: MCPServerManager
+  mcpManager?: MCPServerManager,
+  fileWatcher?: FileWatcher
 ) {
   registerProjectHandlers(db)
   registerTaskHandlers(db)
@@ -49,7 +51,7 @@ export function registerAllHandlers(
   registerClientHandlers(db)
   registerDiscoveryHandlers(db)
   if (windowManager) {
-    registerWindowHandlers(windowManager)
+    registerWindowHandlers(windowManager, db, fileWatcher)
   }
   if (terminalService) {
     registerTerminalHandlers(terminalService)

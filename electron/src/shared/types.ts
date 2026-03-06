@@ -129,6 +129,8 @@ export type SettingsChannel = 'settings:get' | 'settings:set'
 
 export type ArenaChannel = 'arena:open'
 
+export type BrowserCommandChannel = 'browser:executeCommand'
+
 export type SearchChannel = 'search:query' | 'search:reindex' | 'search:getIndexState' | 'search:clearIndex'
 
 export type GmailChannel =
@@ -178,6 +180,7 @@ export type IpcChannel =
   | SettingsChannel
   | ArenaChannel
   | ShellChannel
+  | BrowserCommandChannel
 
 // ─── Electron API ────────────────────────────────────────────────────────────
 
