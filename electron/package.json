@@ -53,7 +53,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.1",
+    "@electron/rebuild": "^4.0.3",
     "@tailwindcss/vite": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -61,8 +61,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
-    "electron": "^34.0.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.8.1",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.5.0",
@@ -153,11 +153,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "resources/icon.icns",
@@ -167,8 +171,16 @@
     "dmg": {
       "title": "${productName}",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "linux": {
