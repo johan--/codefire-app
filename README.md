@@ -43,7 +43,7 @@ Two platform implementations share the same SQLite database schema and MCP proto
 - **Task tracking** — Drag-and-drop Kanban board with priorities, labels, and task notes
 - **Live session monitoring** — Real-time token usage, cost tracking, and tool call stats
 - **Semantic code search** — Vector + keyword hybrid search across your indexed codebase
-- **Built-in terminal** — Tabbed terminal sessions alongside your project views
+- **Built-in terminal** — Tabbed terminal sessions alongside your project views, with show/hide toggle
 - **Browser automation** — 40+ MCP tools for navigating, clicking, typing, screenshotting (Electron)
 - **Git integration** — Commits, staged changes, diffs, and branch management
 - **AI chat** — Ask questions about your codebase with RAG-powered context
@@ -61,11 +61,11 @@ Two platform implementations share the same SQLite database schema and MCP proto
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **macOS (Apple Silicon)** | [CodeFire-macOS.zip](https://github.com/websitebutlers/codefire-app/releases/download/v1.0.5/CodeFire-macOS.zip) | Native Swift app. Unzip and drag to Applications. |
-| **macOS (Intel)** | [CodeFire-1.0.5.dmg](https://github.com/websitebutlers/codefire-app/releases/download/v1.0.5/CodeFire-1.0.5.dmg) | Electron app. Also runs on Apple Silicon via Rosetta 2. |
-| **Windows** | [CodeFire.Setup.1.0.5.exe](https://github.com/websitebutlers/codefire-app/releases/download/v1.0.5/CodeFire.Setup.1.0.5.exe) | NSIS installer. Windows 10+ required. |
-| **Linux (AppImage)** | [CodeFire-1.0.5.AppImage](https://github.com/websitebutlers/codefire-app/releases/download/v1.0.5/CodeFire-1.0.5.AppImage) | `chmod +x` and run. Works on any distro. |
-| **Linux (deb)** | [codefire-electron_1.0.5_amd64.deb](https://github.com/websitebutlers/codefire-app/releases/download/v1.0.5/codefire-electron_1.0.5_amd64.deb) | `sudo dpkg -i` for Debian/Ubuntu. |
+| **macOS (Apple Silicon)** | [CodeFire-macOS.zip](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-macOS.zip) | Native Swift app. Unzip and drag to Applications. |
+| **macOS (Intel)** | [CodeFire-1.1.0.dmg](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-1.1.0.dmg) | Electron app. Also runs on Apple Silicon via Rosetta 2. |
+| **Windows** | [CodeFire.Setup.1.1.0.exe](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire.Setup.1.1.0.exe) | NSIS installer. Windows 10+ required. |
+| **Linux (AppImage)** | [CodeFire-1.1.0.AppImage](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-1.1.0.AppImage) | `chmod +x` and run. Works on any distro. |
+| **Linux (deb)** | [codefire-electron_1.1.0_amd64.deb](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/codefire-electron_1.1.0_amd64.deb) | `sudo dpkg -i` for Debian/Ubuntu. |
 
 > For detailed setup instructions including API key configuration, see the **[Getting Started guide](https://codefire.app/getting-started)**.
 

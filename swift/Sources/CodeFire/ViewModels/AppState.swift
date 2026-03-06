@@ -11,6 +11,7 @@ class AppState: ObservableObject {
     @Published var clients: [Client] = []
     @Published var projectProfile: String?
     @Published var isProfileGenerating = false
+    @Published var showTerminal: Bool = true
 
     enum GUITab: String, CaseIterable {
         case tasks = "Tasks"

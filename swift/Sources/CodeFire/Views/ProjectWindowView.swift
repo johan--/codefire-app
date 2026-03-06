@@ -29,8 +29,10 @@ struct ProjectWindowView: View {
         Group {
             if project != nil {
                 HSplitView {
-                    TerminalTabView(projectPath: $projectPath, projectId: projectId)
-                        .frame(minWidth: 400, idealWidth: 600)
+                    if appState.showTerminal {
+                        TerminalTabView(projectPath: $projectPath, projectId: projectId)
+                            .frame(minWidth: 400, idealWidth: 600)
+                    }
 
                     GUIPanelView()
                         .frame(minWidth: 400, idealWidth: 600)

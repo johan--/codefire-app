@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { ipcMain } from 'electron'
 import { registerProjectHandlers } from './project-handlers'
 import { registerTaskHandlers } from './task-handlers'
 import { registerNoteHandlers } from './note-handlers'
@@ -7,6 +8,7 @@ import { registerClientHandlers } from './client-handlers'
 import { registerWindowHandlers } from './window-handlers'
 import { registerTerminalHandlers } from './terminal-handlers'
 import { registerDiscoveryHandlers } from './discovery-handlers'
+import { discoverProjects, syncProjectsWithDatabase } from '../services/ProjectDiscovery'
 import { registerGitHandlers } from './git-handlers'
 import { registerSearchHandlers } from './search-handlers'
 import { registerGitHubHandlers } from './github-handlers'
@@ -55,6 +57,9 @@ export function registerAllHandlers(
   }
   if (terminalService) {
     registerTerminalHandlers(terminalService)
+  } else {
+    // Register availability check even when terminal is unavailable
+    ipcMain.handle('terminal:available', () => false)
   }
   if (gitService) {
     registerGitHandlers(gitService)
@@ -81,4 +86,14 @@ export function registerAllHandlers(
   if (mcpManager) {
     registerMCPHandlers(mcpManager)
   }
+
+  // Run project discovery at startup to populate claudeProject links (deferred to not block startup)
+  setImmediate(() => {
+    try {
+      const discovered = discoverProjects()
+      syncProjectsWithDatabase(db, discovered)
+    } catch {
+      // Non-fatal — discovery will still work via IPC
+    }
+  })
 }

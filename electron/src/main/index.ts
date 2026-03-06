@@ -6,7 +6,7 @@ import { registerSearchHandlers } from './ipc/search-handlers'
 import { registerGmailHandlers } from './ipc/gmail-handlers'
 import { WindowManager } from './windows/WindowManager'
 import { TrayManager } from './windows/TrayManager'
-import { TerminalService } from './services/TerminalService'
+import type { TerminalService as TerminalServiceType } from './services/TerminalService'
 import { GitService } from './services/GitService'
 import { GoogleOAuth } from './services/GoogleOAuth'
 import { GmailService } from './services/GmailService'
@@ -39,7 +39,14 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 const db = getDatabase()
 const windowManager = WindowManager.getInstance()
 const trayManager = new TrayManager(windowManager)
-const terminalService = new TerminalService()
+// Lazy-load TerminalService — node-pty may not be available if build tools are missing
+let terminalService: TerminalServiceType | undefined
+try {
+  const { TerminalService } = require('./services/TerminalService')
+  terminalService = new TerminalService()
+} catch {
+  console.warn('[Main] Terminal service unavailable — node-pty failed to load')
+}
 const gitService = new GitService()
 
 // Read config early (lightweight)
@@ -288,6 +295,6 @@ app.on('before-quit', () => {
   if (liveWatcher) liveWatcher.stop()
   if (browserExecutor) browserExecutor.stop()
   trayManager.destroy()
-  terminalService.killAll()
+  terminalService?.killAll()
   closeDatabase()
 })

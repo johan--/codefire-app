@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
+import { Terminal } from 'lucide-react'
 import type { Project } from '@shared/models'
 import { api } from '@renderer/lib/api'
 import TerminalPanel from '@renderer/components/Terminal/TerminalPanel'
@@ -8,7 +9,9 @@ import CodeFireChat from '@renderer/components/Chat/CodeFireChat'
 import BriefingDrawer from '@renderer/components/Dashboard/BriefingDrawer'
 import AgentStatusBar from '@renderer/components/StatusBar/AgentStatusBar'
 import { ProjectHeaderLeft, ProjectHeaderRight } from '@renderer/components/Header/ProjectHeaderBar'
+import ProjectDropdown from '@renderer/components/Header/ProjectDropdown'
 import { useMCPStatus } from '@renderer/hooks/useMCPStatus'
+import logoIcon from '../../../resources/icon.png'
 
 // Eager: default tab (Tasks) and lightweight views
 import TasksView from '@renderer/views/TasksView'
@@ -40,6 +43,7 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
   const [indexLastError, setIndexLastError] = useState<string | undefined>()
   const [showBriefing, setShowBriefing] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showTerminal, setShowTerminal] = useState(true)
   const [terminalOnLeft, setTerminalOnLeft] = useState(false)
   const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | 'active' | null>(null)
 
@@ -187,11 +191,25 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
       <div className="flex flex-col" style={{ height: isMac ? 'calc(100vh - 28px)' : '100vh' }}>
         {/* Top bar with project indicators */}
         <div className="flex items-center gap-3 px-4 py-2 border-b border-neutral-800 bg-neutral-950 shrink-0">
-          <span className="text-codefire-orange text-sm" aria-hidden>&#9632;</span>
+          <img src={logoIcon} alt="CodeFire" className="w-4 h-4" />
           <span className="text-sm font-semibold text-neutral-200 tracking-tight">CodeFire</span>
+          <ProjectDropdown />
           <div className="w-px h-4 bg-neutral-700" />
           <ProjectHeaderLeft projectName={project.name} projectPath={project.path} />
           <div className="flex-1" />
+          <button
+            onClick={() => setShowTerminal(v => !v)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${
+              showTerminal
+                ? 'text-codefire-orange bg-codefire-orange/10 hover:bg-codefire-orange/20'
+                : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+            }`}
+            title={showTerminal ? 'Hide Terminal' : 'Show Terminal'}
+          >
+            <Terminal size={13} />
+            <span className="hidden sm:inline">Terminal</span>
+          </button>
+          <div className="w-px h-4 bg-neutral-700" />
           <ProjectHeaderRight
             mcpStatus={mcpStatus}
             mcpSessionCount={mcpSessionCount}
@@ -225,33 +243,39 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
           }}
           onDrop={() => setDragOverSide(null)}
         >
-          <Group orientation="horizontal" id="project-layout" key={terminalOnLeft ? 'tl' : 'tr'}>
-            {terminalOnLeft ? (
-              <>
-                <Panel id="terminal-chat" defaultSize="40%" minSize="20%">
-                  {renderTerminalChat()}
-                </Panel>
-                <Separator className="w-[2px] bg-neutral-800 hover:bg-codefire-orange active:bg-codefire-orange transition-colors duration-150" />
-                <Panel id="content" defaultSize="60%" minSize="30%">
-                  <div className="h-full overflow-hidden flex flex-col">
-                    {renderActiveView(activeTab, projectId, setActiveTab)}
-                  </div>
-                </Panel>
-              </>
-            ) : (
-              <>
-                <Panel id="content" defaultSize="60%" minSize="30%">
-                  <div className="h-full overflow-hidden flex flex-col">
-                    {renderActiveView(activeTab, projectId, setActiveTab)}
-                  </div>
-                </Panel>
-                <Separator className="w-[2px] bg-neutral-800 hover:bg-codefire-orange active:bg-codefire-orange transition-colors duration-150" />
-                <Panel id="terminal-chat" defaultSize="40%" minSize="20%">
-                  {renderTerminalChat()}
-                </Panel>
-              </>
-            )}
-          </Group>
+          {showTerminal ? (
+            <Group orientation="horizontal" id="project-layout" key={terminalOnLeft ? 'tl' : 'tr'}>
+              {terminalOnLeft ? (
+                <>
+                  <Panel id="terminal-chat" defaultSize="40%" minSize="20%">
+                    {renderTerminalChat()}
+                  </Panel>
+                  <Separator className="w-[2px] bg-neutral-800 hover:bg-codefire-orange active:bg-codefire-orange transition-colors duration-150" />
+                  <Panel id="content" defaultSize="60%" minSize="30%">
+                    <div className="h-full overflow-hidden flex flex-col">
+                      {renderActiveView(activeTab, projectId, setActiveTab)}
+                    </div>
+                  </Panel>
+                </>
+              ) : (
+                <>
+                  <Panel id="content" defaultSize="60%" minSize="30%">
+                    <div className="h-full overflow-hidden flex flex-col">
+                      {renderActiveView(activeTab, projectId, setActiveTab)}
+                    </div>
+                  </Panel>
+                  <Separator className="w-[2px] bg-neutral-800 hover:bg-codefire-orange active:bg-codefire-orange transition-colors duration-150" />
+                  <Panel id="terminal-chat" defaultSize="40%" minSize="20%">
+                    {renderTerminalChat()}
+                  </Panel>
+                </>
+              )}
+            </Group>
+          ) : (
+            <div className="h-full overflow-hidden flex flex-col">
+              {renderActiveView(activeTab, projectId, setActiveTab)}
+            </div>
+          )}
 
           {/* Drop zones — full-height overlays on left/right edges, visible during drag */}
           {dragOverSide !== null && (

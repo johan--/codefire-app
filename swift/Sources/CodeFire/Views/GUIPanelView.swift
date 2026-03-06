@@ -257,6 +257,7 @@ struct GUIPanelView: View {
 
             Spacer()
 
+            terminalToggle
             BriefingBellView(showDrawer: $showBriefingDrawer)
             chatButton
             IndexIndicator(
@@ -302,6 +303,34 @@ struct GUIPanelView: View {
         }
         .buttonStyle(.plain)
         .help("Chat")
+    }
+
+    // MARK: - Terminal Toggle
+
+    private var terminalToggle: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                appState.showTerminal.toggle()
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 10, weight: appState.showTerminal ? .semibold : .regular))
+                    .foregroundColor(appState.showTerminal ? .accentColor : .secondary)
+                Text("Terminal")
+                    .font(.system(size: 10, weight: appState.showTerminal ? .semibold : .medium))
+                    .foregroundColor(appState.showTerminal ? .accentColor : .secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(appState.showTerminal ? Color.accentColor.opacity(0.12) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(appState.showTerminal ? "Hide Terminal" : "Show Terminal")
     }
 
     // MARK: - Tab Bar
