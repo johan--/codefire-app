@@ -166,6 +166,18 @@ struct TeamSettingsTab: View {
                             .font(.system(size: 11))
                             .foregroundColor(.red)
                         }
+                    } else {
+                        HStack {
+                            Text("Session expired or failed to load profile.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("Sign Out") {
+                                premiumService.signOut()
+                            }
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
+                        }
                     }
                 }
                 .padding(8)

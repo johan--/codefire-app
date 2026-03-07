@@ -61,20 +61,36 @@ class PremiumService: ObservableObject {
     }
 
     private func restoreUserProfile() async {
-        guard let token = accessToken, !baseURL.isEmpty, !anonKey.isEmpty else { return }
+        guard let token = accessToken else {
+            print("PremiumService: no access token, skipping restore")
+            return
+        }
+        if baseURL.isEmpty || anonKey.isEmpty {
+            print("PremiumService: baseURL or anonKey empty, retrying in 1s...")
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if baseURL.isEmpty || anonKey.isEmpty {
+                print("PremiumService: still empty after retry, giving up")
+                return
+            }
+        }
         var request = URLRequest(url: URL(string: baseURL + "/auth/v1/user")!)
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode == 401 {
-                // Token expired — try refresh
+                print("PremiumService: token expired (401), attempting refresh...")
                 if let _ = try? await refreshSession() {
                     await restoreUserProfile()
                 } else {
+                    print("PremiumService: refresh failed, clearing tokens")
                     clearTokens()
                     status.authenticated = false
                 }
+                return
+            }
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                print("PremiumService: unexpected status \(http.statusCode): \(String(data: data, encoding: .utf8) ?? "")")
                 return
             }
             let user = try decoder.decode(AuthUser.self, from: data)
@@ -84,7 +100,9 @@ class PremiumService: ObservableObject {
                 displayName: user.userMetadata?["display_name"] as? String ?? user.email ?? "",
                 avatarUrl: user.userMetadata?["avatar_url"] as? String
             )
+            print("PremiumService: restored user \(status.user?.email ?? "?")")
             await loadTeamMembership()
+            print("PremiumService: team=\(status.team?.name ?? "none"), subscriptionActive=\(status.subscriptionActive)")
         } catch {
             print("PremiumService: failed to restore user profile: \(error)")
         }
