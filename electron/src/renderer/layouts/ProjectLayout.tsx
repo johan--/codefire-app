@@ -14,6 +14,7 @@ import { useMCPStatus } from '@renderer/hooks/useMCPStatus'
 import { usePremium } from '@renderer/hooks/usePremium'
 import NotificationBell from '@renderer/components/NotificationBell'
 import PresenceAvatars from '@renderer/components/Presence/PresenceAvatars'
+import { UpdateBanner } from '@renderer/components/UpdateBanner'
 import logoIcon from '../../../resources/icon.png'
 
 // Eager: default tab (Tasks) and lightweight views
@@ -235,6 +236,8 @@ export default function ProjectLayout({ projectId }: ProjectLayoutProps) {
             onBriefingClick={() => { setShowBriefing((v) => !v) }}
           />
         </div>
+
+        <UpdateBanner />
 
         {/* Tab bar */}
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />

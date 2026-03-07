@@ -9,6 +9,7 @@ import MCPIndicator from '@renderer/components/StatusBar/MCPIndicator'
 import AllProjectsView from '@renderer/views/AllProjectsView'
 import { useMCPStatus } from '@renderer/hooks/useMCPStatus'
 import NotificationBell from '@renderer/components/NotificationBell'
+import { UpdateBanner } from '@renderer/components/UpdateBanner'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
@@ -42,6 +43,8 @@ export default function MainLayout() {
           <NotificationBell />
           <MCPIndicator status={mcpStatus} sessionCount={mcpSessionCount} onConnect={startMCP} onDisconnect={stopMCP} />
         </div>
+
+        <UpdateBanner />
 
         {/* Main content area: dashboard left + terminal/chat right */}
         <div className="flex-1 overflow-hidden">
