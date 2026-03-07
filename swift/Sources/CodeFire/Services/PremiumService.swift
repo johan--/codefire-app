@@ -22,6 +22,14 @@ class PremiumService: ObservableObject {
     private var accessToken: String?
     private var refreshToken: String?
 
+    /// Super admins bypass all paywalls and limits
+    private static let superAdminEmails: Set<String> = ["nick@gridnpixel.com"]
+
+    var isSuperAdmin: Bool {
+        guard let email = status.user?.email else { return false }
+        return Self.superAdminEmails.contains(email.lowercased())
+    }
+
     private var baseURL: String { SharedServices.shared.appSettings.supabaseUrl }
     private var anonKey: String { SharedServices.shared.appSettings.supabaseAnonKey }
 
@@ -1000,6 +1008,11 @@ class PremiumService: ObservableObject {
             } catch {
                 // Non-fatal
             }
+        }
+
+        // Super admins always have active subscription
+        if isSuperAdmin {
+            status.subscriptionActive = true
         }
     }
 

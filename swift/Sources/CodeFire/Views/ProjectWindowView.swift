@@ -68,7 +68,6 @@ struct ProjectWindowView: View {
         .environmentObject(claudeService)
         .environmentObject(githubService)
         .environmentObject(contextEngine)
-        .environmentObject(briefingService)
         .background(Color(nsColor: .windowBackgroundColor))
         .ignoresSafeArea()
         .background(WindowConfigurator(title: project?.name))

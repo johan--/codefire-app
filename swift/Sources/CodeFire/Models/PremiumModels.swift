@@ -22,6 +22,8 @@ struct Team: Codable, Identifiable, Sendable {
     let name: String
     let slug: String
     let ownerId: String
+    let stripeCustomerId: String?
+    let stripeSubscriptionId: String?
     let plan: String  // "starter" | "agency"
     let seatLimit: Int
     let projectLimit: Int?
@@ -30,6 +32,8 @@ struct Team: Codable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, name, slug, plan
         case ownerId = "owner_id"
+        case stripeCustomerId = "stripe_customer_id"
+        case stripeSubscriptionId = "stripe_subscription_id"
         case seatLimit = "seat_limit"
         case projectLimit = "project_limit"
         case createdAt = "created_at"

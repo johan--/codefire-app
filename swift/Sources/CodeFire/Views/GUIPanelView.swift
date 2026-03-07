@@ -111,7 +111,6 @@ struct GUIPanelView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        BriefingBellView(showDrawer: $showBriefingDrawer)
                         chatButton
                         MCPIndicator(connections: mcpMonitor.connections, currentProjectId: nil)
                     }
@@ -208,24 +207,6 @@ struct GUIPanelView: View {
                 }
             }
         }
-        .overlay(alignment: .trailing) {
-            if showBriefingDrawer {
-                HStack(spacing: 0) {
-                    Color.black.opacity(0.15)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showBriefingDrawer = false
-                            }
-                        }
-
-                    BriefingDrawerView(showDrawer: $showBriefingDrawer)
-                        .frame(width: 400)
-                        .background(.ultraThinMaterial)
-                        .transition(.move(edge: .trailing))
-                }
-            }
-        }
         .onAppear {
             mcpMonitor.startPolling()
             browserCommandExecutor.start(browserViewModel: browserViewModel)
@@ -266,7 +247,6 @@ struct GUIPanelView: View {
             PresenceAvatarsView(projectId: appState.currentProject?.id)
             terminalToggle
             NotificationBellView()
-            BriefingBellView(showDrawer: $showBriefingDrawer)
             chatButton
             IndexIndicator(
                 isIndexing: contextEngine.isIndexing,

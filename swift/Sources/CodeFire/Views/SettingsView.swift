@@ -31,11 +31,6 @@ struct SettingsView: View {
                     Label("Browser", systemImage: "globe")
                 }
 
-            BriefingSettingsTab(settings: settings)
-                .tabItem {
-                    Label("Briefing", systemImage: "bell.badge")
-                }
-
             TeamSettingsTab(settings: settings)
                 .tabItem {
                     Label("Team", systemImage: "person.3")
