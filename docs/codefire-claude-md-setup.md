@@ -1,6 +1,37 @@
-# CodeFire MCP — Claude.md Setup
+# CodeFire MCP — Setup Guide
 
-Copy the section below into your `~/.claude/CLAUDE.md` file (global instructions) to enable CodeFire integration with Claude Code.
+## Step 1: Connect the MCP Server
+
+First, register the CodeFire MCP server with your AI coding CLI. CodeFire must be installed and running.
+
+### macOS (Swift app)
+
+```bash
+# Claude Code
+claude mcp add codefire ~/Library/Application\ Support/CodeFire/bin/CodeFireMCP
+```
+
+### Windows (Electron app)
+
+```bash
+# Claude Code
+claude mcp add codefire node "%APPDATA%\CodeFire\resources\mcp-server.js"
+```
+
+### Linux (Electron app)
+
+```bash
+# Claude Code
+claude mcp add codefire node ~/.config/CodeFire/resources/mcp-server.js
+```
+
+### Verify it's connected
+
+Start a new Claude Code session and ask: "What MCP tools do you have from codefire?" — you should see 60+ tools listed.
+
+## Step 2: Add Instructions to Claude.md
+
+Copy the section below into your `~/.claude/CLAUDE.md` file (global instructions). This tells Claude Code how to use the CodeFire tools effectively.
 
 ---
 
