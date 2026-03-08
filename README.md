@@ -61,11 +61,10 @@ Two platform implementations share the same SQLite database schema and MCP proto
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **macOS (Apple Silicon)** | [CodeFire-macOS.zip](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-macOS.zip) | Native Swift app. Unzip and drag to Applications. |
-| **macOS (Intel)** | [CodeFire-1.1.0.dmg](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-1.1.0.dmg) | Electron app. Also runs on Apple Silicon via Rosetta 2. |
-| **Windows** | [CodeFire.Setup.1.1.0.exe](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire.Setup.1.1.0.exe) | NSIS installer. Windows 10+ required. |
-| **Linux (AppImage)** | [CodeFire-1.1.0.AppImage](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/CodeFire-1.1.0.AppImage) | `chmod +x` and run. Works on any distro. |
-| **Linux (deb)** | [codefire-electron_1.1.0_amd64.deb](https://github.com/websitebutlers/codefire-app/releases/download/v1.1.0/codefire-electron_1.1.0_amd64.deb) | `sudo dpkg -i` for Debian/Ubuntu. |
+| **macOS (Apple Silicon)** | [CodeFire-macOS.zip](https://github.com/websitebutlers/codefire-app/releases/latest/download/CodeFire-macOS.zip) | Native Swift app. Unzip and drag to Applications. |
+| **macOS (Intel)** | [CodeFire Electron DMG](https://github.com/websitebutlers/codefire-app/releases/latest) | Electron app. Also runs on Apple Silicon via Rosetta 2. |
+| **Windows** | [CodeFire Setup exe](https://github.com/websitebutlers/codefire-app/releases/latest) | NSIS installer. Windows 10+ required. |
+| **Linux** | [Latest Release](https://github.com/websitebutlers/codefire-app/releases/latest) | AppImage + .deb available when built on Linux CI. |
 
 > For detailed setup instructions including API key configuration, see the **[Getting Started guide](https://codefire.app/getting-started)**.
 
