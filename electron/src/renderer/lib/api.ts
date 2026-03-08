@@ -595,10 +595,6 @@ export const api = {
     revokeGrant: (grantId: string) => invoke('premium:admin:revokeGrant', grantId) as Promise<void>,
   },
 
-  arena: {
-    open: () => invoke('arena:open') as Promise<void>,
-  },
-
   github: {
     getRepoInfo: (projectPath: string) =>
       invoke('github:getRepoInfo', projectPath) as Promise<{ owner: string; repo: string } | null>,

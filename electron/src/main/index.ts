@@ -237,11 +237,6 @@ app.on('open-url', (event, url) => {
 // Register essential IPC handlers immediately (db, window, terminal, git, MCP)
 registerAllHandlers(db, windowManager, terminalService, gitService, undefined, undefined, undefined, undefined, mcpManager, undefined)
 
-// Register Agent Arena handler
-import { openAgentArena } from './windows/AgentArenaWindow'
-ipcMain.handle('arena:open', () => {
-  openAgentArena(liveWatcher ?? undefined)
-})
 
 let isQuitting = false
 
