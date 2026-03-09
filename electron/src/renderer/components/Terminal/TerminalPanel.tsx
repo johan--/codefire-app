@@ -141,24 +141,6 @@ export default function TerminalPanel({ projectId, projectPath, showChat, onTogg
     return removeListener
   }, [])
 
-  // ─── Listen for auto-created terminals (from writeToActive fallback) ───
-  useEffect(() => {
-    const removeListener = window.api.on(
-      'terminal:created',
-      (id: unknown) => {
-        if (typeof id === 'string') {
-          setTabs((prev) => {
-            // Don't add if we already have it
-            if (prev.some((t) => t.id === id)) return prev
-            return [...prev, { id, label: `Terminal ${prev.length + 1}` }]
-          })
-          setActiveTabId(id)
-        }
-      }
-    )
-    return removeListener
-  }, [])
-
   if (terminalAvailable === false) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-[#171717] text-neutral-400 gap-3 px-8 text-center">

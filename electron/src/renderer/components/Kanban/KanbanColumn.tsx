@@ -18,6 +18,12 @@ const DROP_BORDER: Record<string, string> = {
   'text-green-400': 'border-green-500/50',
 }
 
+const ACCENT_BAR: Record<string, string> = {
+  'text-orange-400': 'bg-orange-400',
+  'text-blue-400': 'bg-blue-400',
+  'text-green-400': 'bg-green-400',
+}
+
 const DROP_EMPTY: Record<string, { text: string; bg: string; border: string }> = {
   'text-orange-400': { text: 'text-orange-500/70', bg: 'bg-orange-500/5', border: 'border-orange-500/30' },
   'text-blue-400': { text: 'text-blue-500/70', bg: 'bg-blue-500/5', border: 'border-blue-500/30' },
@@ -85,7 +91,7 @@ export default function KanbanColumn({
             <Plus size={14} />
           </button>
         </div>
-        <div className={`h-0.5 mx-3 rounded-full ${color.replace('text-', 'bg-')}`} />
+        <div className={`h-0.5 mx-3 rounded-full ${ACCENT_BAR[color] || 'bg-neutral-600'}`} />
       </div>
 
       {/* Quick add input */}
