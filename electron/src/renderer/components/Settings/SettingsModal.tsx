@@ -11,11 +11,6 @@ import SettingsTabBriefing from './SettingsTabBriefing'
 import SettingsTabTeam from './SettingsTabTeam'
 import SettingsTabAdmin from './SettingsTabAdmin'
 
-interface SettingsModalProps {
-  open: boolean
-  onClose: () => void
-}
-
 const BASE_TABS = [
   { id: 'general', label: 'General', icon: Settings },
   { id: 'team', label: 'Team', icon: Users },
@@ -28,21 +23,28 @@ const BASE_TABS = [
 
 const ADMIN_TAB = { id: 'admin' as const, label: 'Admin', icon: Shield }
 
-type TabId = (typeof BASE_TABS)[number]['id'] | 'admin'
+export type TabId = (typeof BASE_TABS)[number]['id'] | 'admin'
 
-export default function SettingsModal({ open, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('general')
+interface SettingsModalProps {
+  open: boolean
+  onClose: () => void
+  initialTab?: TabId
+}
+
+export default function SettingsModal({ open, onClose, initialTab }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? 'general')
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [saved, setSaved] = useState(false)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   useEffect(() => {
     if (open) {
+      setActiveTab(initialTab ?? 'general')
       api.settings.get().then(setConfig).catch(() => {})
       api.premium.isSuperAdmin().then(setIsSuperAdmin).catch(() => setIsSuperAdmin(false))
       setSaved(false)
     }
-  }, [open])
+  }, [open, initialTab])
 
   const tabs = isSuperAdmin
     ? [...BASE_TABS, ADMIN_TAB]
