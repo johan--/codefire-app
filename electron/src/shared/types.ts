@@ -93,6 +93,7 @@ export type ImageChannel =
   | 'images:create'
   | 'images:delete'
   | 'images:generate'
+  | 'images:edit'
   | 'images:readFile'
 
 export type RecordingChannel =
@@ -130,6 +131,13 @@ export type UpdateChannel = 'update:check' | 'update:download'
 export type DeepLinkReceiveChannel = 'deeplink:result'
 
 export type SettingsChannel = 'settings:get' | 'settings:set'
+
+export type ContextChannel =
+  | 'context:setupProject'
+  | 'context:injectInstruction'
+  | 'context:removeInstruction'
+  | 'context:hasInstruction'
+  | 'context:installMCP'
 
 export type BrowserCommandChannel = 'browser:executeCommand'
 
@@ -186,6 +194,14 @@ export type ProjectDocChannel =
   | 'projectDocs:update'
   | 'projectDocs:delete'
 
+export type PatternChannel =
+  | 'patterns:list'
+  | 'patterns:get'
+  | 'patterns:create'
+  | 'patterns:update'
+  | 'patterns:delete'
+  | 'patterns:categories'
+
 export type SearchChannel = 'search:query' | 'search:reindex' | 'search:getIndexState' | 'search:clearIndex'
 
 export type GmailChannel =
@@ -237,6 +253,8 @@ export type IpcChannel =
   | BrowserCommandChannel
   | PremiumChannel
   | ProjectDocChannel
+  | PatternChannel
+  | ContextChannel
 
 // ─── Electron API ────────────────────────────────────────────────────────────
 

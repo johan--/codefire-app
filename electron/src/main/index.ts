@@ -19,6 +19,7 @@ import { ContextEngine } from './services/ContextEngine'
 import { EmbeddingClient } from './services/EmbeddingClient'
 import { BrowserCommandExecutor } from './services/BrowserCommandExecutor'
 import { LiveSessionWatcher } from './services/LiveSessionWatcher'
+import { SessionWatcher } from './services/SessionWatcher'
 import { FileWatcher } from './services/FileWatcher'
 import { ProjectDAO } from './database/dao/ProjectDAO'
 import { AuthService } from './services/premium/AuthService'
@@ -70,6 +71,7 @@ let contextEngine: ContextEngine
 let fileWatcher: FileWatcher
 let browserExecutor: BrowserCommandExecutor | null = null
 let liveWatcher: LiveSessionWatcher
+let sessionWatcher: SessionWatcher
 
 function initDeferredServices() {
   // Gmail
@@ -109,6 +111,22 @@ function initDeferredServices() {
   // Live session watcher
   liveWatcher = new LiveSessionWatcher()
   liveWatcher.start()
+
+  // Session watcher — auto-import sessions from Claude project directories
+  sessionWatcher = new SessionWatcher(db)
+  sessionWatcher.onSessionChange((sessionId, projectId) => {
+    // Notify all windows that sessions changed
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('sessions:updated', { sessionId, projectId })
+    }
+  })
+  // Watch all projects that have a claudeProject directory
+  const allProjects = projectDAO.list()
+  for (const project of allProjects) {
+    if (project.claudeProject) {
+      sessionWatcher.watchProject(project.id, project.claudeProject)
+    }
+  }
 
   // Register deferred IPC handlers
   registerSearchHandlers(db, searchEngine, contextEngine)
@@ -420,6 +438,7 @@ app.on('before-quit', () => {
   isQuitting = true
   if (fileWatcher) fileWatcher.unwatchAll()
   if (liveWatcher) liveWatcher.stop()
+  if (sessionWatcher) sessionWatcher.unwatchAll()
   if (browserExecutor) browserExecutor.stop()
   trayManager.destroy()
   terminalService?.killAll()

@@ -21,14 +21,25 @@ export default function LiveSessionView({ projectId }: LiveSessionViewProps) {
 
   useEffect(() => {
     let cancelled = false
-    const poll = () => {
+
+    // Initial fetch via IPC
+    api.sessions.getLiveState(projectId).then((s) => {
+      if (!cancelled) setState(s)
+    }).catch(() => {})
+
+    // Listen for real-time push events from LiveSessionWatcher
+    const cleanup = window.api.on('sessions:liveUpdate', (...args: unknown[]) => {
+      if (!cancelled) setState(args[0] as LiveSessionState)
+    })
+
+    // Fallback poll every 10s in case push events are missed
+    const interval = setInterval(() => {
       api.sessions.getLiveState(projectId).then((s) => {
         if (!cancelled) setState(s)
       }).catch(() => {})
-    }
-    poll()
-    const interval = setInterval(poll, 3000)
-    return () => { cancelled = true; clearInterval(interval) }
+    }, 10000)
+
+    return () => { cancelled = true; clearInterval(interval); cleanup?.() }
   }, [projectId])
 
   if (!state) {

@@ -26,7 +26,14 @@ export function useTasks(projectId: string) {
   useEffect(() => {
     fetchTasks()
     const interval = setInterval(fetchTasks, 5000)
-    return () => clearInterval(interval)
+    // Also listen for cross-window task updates (from other windows or MCP)
+    const unsub = window.api.on('tasks:updated', () => {
+      fetchTasks()
+    })
+    return () => {
+      clearInterval(interval)
+      unsub()
+    }
   }, [fetchTasks])
 
   const createTask = useCallback(

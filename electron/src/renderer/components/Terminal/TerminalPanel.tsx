@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MessageCircle, GripVertical } from 'lucide-react'
 import TerminalTab from './TerminalTab'
+import CLIQuickLaunch from './CLIQuickLaunch'
 
 interface TerminalPanelProps {
   /** Project ID, used as a prefix for terminal session IDs */
@@ -80,6 +81,18 @@ export default function TerminalPanel({ projectId, projectPath, showChat, onTogg
     },
     [activeTabId]
   )
+
+  // ─── Launch a CLI tool in a new terminal tab ──────────────────────────────
+  const launchCLI = useCallback(async (label: string, command: string) => {
+    const id = createTabId(projectId)
+    await window.api.invoke('terminal:create', id, projectPath)
+    setTabs((prev) => [...prev, { id, label }])
+    setActiveTabId(id)
+    // Brief delay to let the shell initialize, then write the command
+    setTimeout(() => {
+      window.api.send('terminal:write', id, command + '\n')
+    }, 300)
+  }, [projectId, projectPath])
 
   // ─── Check availability and create first tab on mount ────────────────────
   useEffect(() => {
@@ -232,6 +245,10 @@ export default function TerminalPanel({ projectId, projectPath, showChat, onTogg
         >
           <span className="text-lg leading-none">+</span>
         </button>
+
+        {/* CLI Quick Launch */}
+        <div className="w-px h-4 bg-[#262626]" />
+        <CLIQuickLaunch onLaunch={launchCLI} projectPath={projectPath} />
 
         {/* Chat Mode toggle */}
         {onToggleChat && (

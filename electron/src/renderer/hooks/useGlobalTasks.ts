@@ -41,6 +41,11 @@ export function useGlobalTasks() {
 
   useEffect(() => {
     fetchTasks()
+    // Listen for cross-window task updates (from other windows or MCP)
+    const unsub = window.api.on('tasks:updated', () => {
+      fetchTasks()
+    })
+    return unsub
   }, [fetchTasks])
 
   const createTask = useCallback(

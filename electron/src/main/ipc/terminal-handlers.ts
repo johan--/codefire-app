@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { TerminalService } from '../services/TerminalService'
+import { NotificationService } from '../services/NotificationService'
 
 /**
  * Register IPC handlers for terminal management.
@@ -46,6 +47,8 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
         if (senderWindow && !senderWindow.isDestroyed()) {
           senderWindow.webContents.send('terminal:exit', id, exitCode, signal)
         }
+        // Send native OS notification for CLI session completion
+        NotificationService.getInstance().notifyClaudeDone(id)
         // Clean up the session after exit
         terminalService.kill(id)
       })
