@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import http from 'node:http'
 import { URL, URLSearchParams } from 'node:url'
 import { BrowserWindow } from 'electron'
@@ -35,6 +36,9 @@ export class GoogleOAuth {
       let server: http.Server | null = null
       let authWindow: BrowserWindow | null = null
 
+      // Generate a random state parameter for CSRF protection
+      const oauthState = crypto.randomBytes(32).toString('hex')
+
       const cleanup = () => {
         if (authWindow && !authWindow.isDestroyed()) {
           authWindow.close()
@@ -59,6 +63,18 @@ export class GoogleOAuth {
 
           const code = url.searchParams.get('code')
           const error = url.searchParams.get('error')
+          const returnedState = url.searchParams.get('state')
+
+          // Verify state parameter to prevent CSRF
+          if (returnedState !== oauthState) {
+            res.writeHead(403, { 'Content-Type': 'text/html' })
+            res.end(
+              '<html><body><h2>Invalid state parameter.</h2><p>This may be a CSRF attack. Please try again.</p></body></html>'
+            )
+            cleanup()
+            reject(new Error('OAuth state mismatch — possible CSRF'))
+            return
+          }
 
           if (error) {
             res.writeHead(200, { 'Content-Type': 'text/html' })
@@ -100,7 +116,8 @@ export class GoogleOAuth {
         }
       })
 
-      server.listen(8912, () => {
+      // Bind to localhost only — not 0.0.0.0
+      server.listen(8912, '127.0.0.1', () => {
         // 2. Build the Google OAuth URL
         const params = new URLSearchParams({
           client_id: this.clientId,
@@ -109,6 +126,7 @@ export class GoogleOAuth {
           scope: this.scopes.join(' '),
           access_type: 'offline',
           prompt: 'consent',
+          state: oauthState,
         })
 
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -122,6 +140,15 @@ export class GoogleOAuth {
             nodeIntegration: false,
             contextIsolation: true,
           },
+        })
+
+        // Restrict navigation to Google OAuth domains
+        authWindow.webContents.on('will-navigate', (event, url) => {
+          const parsed = new URL(url)
+          const allowed = ['accounts.google.com', 'accounts.youtube.com', 'myaccount.google.com', 'localhost']
+          if (!allowed.includes(parsed.hostname)) {
+            event.preventDefault()
+          }
         })
 
         authWindow.loadURL(authUrl)

@@ -1,5 +1,7 @@
 import { ipcMain } from 'electron'
+import * as path from 'path'
 import { GitService } from '../services/GitService'
+import { getPathValidator } from '../services/PathValidator'
 
 /**
  * Register IPC handlers for git operations.
@@ -12,6 +14,7 @@ export function registerGitHandlers(gitService: GitService) {
     if (!projectPath || typeof projectPath !== 'string') {
       throw new Error('projectPath is required and must be a string')
     }
+    getPathValidator().assertAllowed(projectPath)
     return gitService.status(projectPath)
   })
 
@@ -25,6 +28,7 @@ export function registerGitHandlers(gitService: GitService) {
       if (!projectPath || typeof projectPath !== 'string') {
         throw new Error('projectPath is required and must be a string')
       }
+      getPathValidator().assertAllowed(projectPath)
       return gitService.diff(projectPath, options)
     }
   )
@@ -39,6 +43,7 @@ export function registerGitHandlers(gitService: GitService) {
       if (!projectPath || typeof projectPath !== 'string') {
         throw new Error('projectPath is required and must be a string')
       }
+      getPathValidator().assertAllowed(projectPath)
       return gitService.log(projectPath, options)
     }
   )
@@ -51,6 +56,13 @@ export function registerGitHandlers(gitService: GitService) {
       }
       if (!Array.isArray(files) || files.length === 0) {
         throw new Error('files must be a non-empty array of strings')
+      }
+      getPathValidator().assertAllowed(projectPath)
+      // Validate files are relative paths (no traversal, no absolute paths)
+      for (const file of files) {
+        if (typeof file !== 'string') throw new Error('Each file must be a string')
+        if (path.isAbsolute(file)) throw new Error('File paths must be relative')
+        if (file.includes('..')) throw new Error('File paths must not contain ..')
       }
       return gitService.stage(projectPath, files)
     }
@@ -65,6 +77,12 @@ export function registerGitHandlers(gitService: GitService) {
       if (!Array.isArray(files) || files.length === 0) {
         throw new Error('files must be a non-empty array of strings')
       }
+      getPathValidator().assertAllowed(projectPath)
+      for (const file of files) {
+        if (typeof file !== 'string') throw new Error('Each file must be a string')
+        if (path.isAbsolute(file)) throw new Error('File paths must be relative')
+        if (file.includes('..')) throw new Error('File paths must not contain ..')
+      }
       return gitService.unstage(projectPath, files)
     }
   )
@@ -78,6 +96,7 @@ export function registerGitHandlers(gitService: GitService) {
       if (!message || typeof message !== 'string') {
         throw new Error('message is required and must be a string')
       }
+      getPathValidator().assertAllowed(projectPath)
       return gitService.commit(projectPath, message)
     }
   )

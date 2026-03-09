@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { readConfig } from '../ConfigStore'
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 
@@ -14,8 +14,21 @@ function getTokenPath(): string {
 
 function loadPersistedSession(): { access_token: string; refresh_token: string } | null {
   try {
-    const data = fs.readFileSync(getTokenPath(), 'utf-8')
-    return JSON.parse(data)
+    const raw = fs.readFileSync(getTokenPath(), 'utf-8')
+    const data = JSON.parse(raw)
+
+    // Handle encrypted format
+    if (data._encrypted && safeStorage.isEncryptionAvailable()) {
+      const decrypted = safeStorage.decryptString(Buffer.from(data._encrypted, 'base64'))
+      return JSON.parse(decrypted)
+    }
+
+    // Legacy plaintext format — still accept it (will be re-encrypted on next save)
+    if (data.access_token && data.refresh_token) {
+      return data
+    }
+
+    return null
   } catch {
     return null
   }
@@ -23,7 +36,20 @@ function loadPersistedSession(): { access_token: string; refresh_token: string }
 
 function persistSession(session: { access_token: string; refresh_token: string } | null): void {
   if (session) {
-    fs.writeFileSync(getTokenPath(), JSON.stringify(session), 'utf-8')
+    const json = JSON.stringify(session)
+
+    // Encrypt if safeStorage is available
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(json)
+        fs.writeFileSync(getTokenPath(), JSON.stringify({ _encrypted: encrypted.toString('base64') }), 'utf-8')
+        return
+      }
+    } catch {
+      // Fall through to plaintext
+    }
+
+    fs.writeFileSync(getTokenPath(), json, 'utf-8')
   } else {
     try { fs.unlinkSync(getTokenPath()) } catch { /* ignore */ }
   }

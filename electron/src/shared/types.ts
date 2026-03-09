@@ -131,8 +131,6 @@ export type DeepLinkReceiveChannel = 'deeplink:result'
 
 export type SettingsChannel = 'settings:get' | 'settings:set'
 
-export type ArenaChannel = 'arena:open'
-
 export type BrowserCommandChannel = 'browser:executeCommand'
 
 export type PremiumChannel =
@@ -235,7 +233,6 @@ export type IpcChannel =
   | ChatChannel
   | UpdateChannel
   | SettingsChannel
-  | ArenaChannel
   | ShellChannel
   | BrowserCommandChannel
   | PremiumChannel

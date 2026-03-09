@@ -73,7 +73,20 @@ export function registerChatHandlers(db: Database.Database) {
   })
 
   // Insert a browser command into the browserCommands table for the BrowserView to execute
+  const ALLOWED_BROWSER_TOOLS = new Set([
+    'browser_navigate',
+    'browser_snapshot',
+    'browser_screenshot',
+    'browser_click',
+    'browser_type',
+    'browser_console_logs',
+    // browser_eval intentionally excluded — unrestricted JS execution
+  ])
+
   ipcMain.handle('chat:browserCommand', (_e, tool: string, argsJSON: string) => {
+    if (!tool || typeof tool !== 'string' || !ALLOWED_BROWSER_TOOLS.has(tool)) {
+      throw new Error(`Invalid browser command tool: ${tool}`)
+    }
     const now = new Date().toISOString()
     const result = db
       .prepare('INSERT INTO browserCommands (tool, args, status, createdAt) VALUES (?, ?, ?, ?)')

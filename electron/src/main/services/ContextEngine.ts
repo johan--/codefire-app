@@ -20,7 +20,7 @@ const execFileAsync = promisify(execFile)
 const yieldToEventLoop = () => new Promise<void>((r) => setImmediate(r))
 
 /** How many files to process before yielding. */
-const INDEX_BATCH_SIZE = 30
+const INDEX_BATCH_SIZE = 10
 
 // ─── Skip Rules ──────────────────────────────────────────────────────────────
 
@@ -167,60 +167,74 @@ export class ContextEngine {
       )
 
       // Step 3: Process each file (yield every batch to keep event loop responsive)
-      for (let i = 0; i < absolutePaths.length; i++) {
-        if (i > 0 && i % INDEX_BATCH_SIZE === 0) {
-          await yieldToEventLoop()
+      const insertBatch = this.db.transaction(
+        (
+          batch: {
+            absPath: string
+            relPath: string
+          }[]
+        ) => {
+          for (const { absPath, relPath } of batch) {
+            let content: string
+            try {
+              // Use synchronous read inside transaction for consistency
+              content = fs.readFileSync(absPath, 'utf-8')
+            } catch {
+              continue // Skip unreadable files
+            }
+
+            const contentHash = hashContent(content)
+            const existing = this.indexDAO.getFileByPath(projectId, relPath)
+
+            // Skip unchanged files
+            if (existing && existing.contentHash === contentHash) {
+              continue
+            }
+
+            // Delete old chunks if file existed before
+            if (existing) {
+              this.chunkDAO.deleteByFile(existing.id)
+            }
+
+            // Detect language and chunk
+            const language = detectLanguage(relPath)
+            const chunks = chunkFile(content, language)
+
+            // Upsert the indexed file record
+            const indexedFile = this.indexDAO.upsertFile({
+              projectId,
+              relativePath: relPath,
+              contentHash,
+              language,
+            })
+
+            // Insert new chunks
+            for (const chunk of chunks) {
+              this.chunkDAO.insert({
+                id: randomUUID(),
+                fileId: indexedFile.id,
+                projectId,
+                chunkType: chunk.chunkType,
+                symbolName: chunk.symbolName,
+                content: chunk.content,
+                startLine: chunk.startLine,
+                endLine: chunk.endLine,
+                embedding: null,
+              })
+            }
+          }
         }
+      )
 
-        const absPath = absolutePaths[i]
-        const relPath = relativePaths[i]
-
-        let content: string
-        try {
-          content = await fsPromises.readFile(absPath, 'utf-8')
-        } catch {
-          continue // Skip unreadable files
-        }
-
-        const contentHash = hashContent(content)
-        const existing = this.indexDAO.getFileByPath(projectId, relPath)
-
-        // Skip unchanged files
-        if (existing && existing.contentHash === contentHash) {
-          continue
-        }
-
-        // Delete old chunks if file existed before
-        if (existing) {
-          this.chunkDAO.deleteByFile(existing.id)
-        }
-
-        // Detect language and chunk
-        const language = detectLanguage(relPath)
-        const chunks = chunkFile(content, language)
-
-        // Upsert the indexed file record
-        const indexedFile = this.indexDAO.upsertFile({
-          projectId,
-          relativePath: relPath,
-          contentHash,
-          language,
-        })
-
-        // Insert new chunks
-        for (const chunk of chunks) {
-          this.chunkDAO.insert({
-            id: randomUUID(),
-            fileId: indexedFile.id,
-            projectId,
-            chunkType: chunk.chunkType,
-            symbolName: chunk.symbolName,
-            content: chunk.content,
-            startLine: chunk.startLine,
-            endLine: chunk.endLine,
-            embedding: null,
-          })
-        }
+      for (let i = 0; i < absolutePaths.length; i += INDEX_BATCH_SIZE) {
+        const batch = absolutePaths
+          .slice(i, i + INDEX_BATCH_SIZE)
+          .map((absPath, j) => ({
+            absPath,
+            relPath: relativePaths[i + j],
+          }))
+        insertBatch(batch)
+        await yieldToEventLoop()
       }
 
       // Step 4: Delete stale files
@@ -261,7 +275,7 @@ export class ContextEngine {
 
     let content: string
     try {
-      content = fs.readFileSync(absPath, 'utf-8')
+      content = await fsPromises.readFile(absPath, 'utf-8')
     } catch {
       // File can't be read — remove it from the index
       await this.removeFile(projectId, relativePath)
@@ -274,41 +288,44 @@ export class ContextEngine {
     // Skip if unchanged
     if (existing && existing.contentHash === contentHash) return
 
-    // Delete old chunks
-    if (existing) {
-      this.chunkDAO.deleteByFile(existing.id)
-    }
+    // Run all DB writes in a single transaction
+    this.db.transaction(() => {
+      // Delete old chunks
+      if (existing) {
+        this.chunkDAO.deleteByFile(existing.id)
+      }
 
-    // Chunk the file
-    const language = detectLanguage(relativePath)
-    const chunks = chunkFile(content, language)
+      // Chunk the file
+      const language = detectLanguage(relativePath)
+      const chunks = chunkFile(content, language)
 
-    // Upsert indexed file record
-    const indexedFile = this.indexDAO.upsertFile({
-      projectId,
-      relativePath,
-      contentHash,
-      language,
-    })
-
-    // Insert new chunks
-    for (const chunk of chunks) {
-      this.chunkDAO.insert({
-        id: randomUUID(),
-        fileId: indexedFile.id,
+      // Upsert indexed file record
+      const indexedFile = this.indexDAO.upsertFile({
         projectId,
-        chunkType: chunk.chunkType,
-        symbolName: chunk.symbolName,
-        content: chunk.content,
-        startLine: chunk.startLine,
-        endLine: chunk.endLine,
-        embedding: null,
+        relativePath,
+        contentHash,
+        language,
       })
-    }
 
-    // Update total chunk count
-    const totalChunks = this.chunkDAO.countByProject(projectId)
-    this.indexDAO.updateState(projectId, { totalChunks })
+      // Insert new chunks
+      for (const chunk of chunks) {
+        this.chunkDAO.insert({
+          id: randomUUID(),
+          fileId: indexedFile.id,
+          projectId,
+          chunkType: chunk.chunkType,
+          symbolName: chunk.symbolName,
+          content: chunk.content,
+          startLine: chunk.startLine,
+          endLine: chunk.endLine,
+          embedding: null,
+        })
+      }
+
+      // Update total chunk count
+      const totalChunks = this.chunkDAO.countByProject(projectId)
+      this.indexDAO.updateState(projectId, { totalChunks })
+    })()
   }
 
   /**

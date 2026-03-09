@@ -1,9 +1,16 @@
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import type { AppConfig } from '@shared/models'
 
 const CONFIG_FILE = 'codefire-settings.json'
+
+/** Keys that contain secrets and should be encrypted at rest */
+const SECRET_KEYS: (keyof AppConfig)[] = [
+  'openRouterKey',
+  'googleClientId',
+  'googleClientSecret',
+]
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
   // General
@@ -65,10 +72,55 @@ function getConfigPath(): string {
   return path.join(app.getPath('userData'), CONFIG_FILE)
 }
 
+/**
+ * Encrypt a secret value using Electron's safeStorage (DPAPI on Windows, Keychain on macOS).
+ * Falls back to plaintext if safeStorage is not available (e.g., in tests or CI).
+ */
+function encryptSecret(value: string): string {
+  if (!value) return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(value)
+      return 'enc:' + encrypted.toString('base64')
+    }
+  } catch {
+    // safeStorage not available
+  }
+  return value
+}
+
+/**
+ * Decrypt a secret value. Handles both encrypted (enc:...) and legacy plaintext values.
+ */
+function decryptSecret(value: string): string {
+  if (!value) return ''
+  if (value.startsWith('enc:')) {
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        const buffer = Buffer.from(value.slice(4), 'base64')
+        return safeStorage.decryptString(buffer)
+      }
+    } catch {
+      // Decryption failed — value may be corrupted
+      return ''
+    }
+  }
+  // Legacy plaintext value — return as-is (will be re-encrypted on next write)
+  return value
+}
+
 export function readConfig(): AppConfig {
   try {
     const data = fs.readFileSync(getConfigPath(), 'utf-8')
     const stored = JSON.parse(data) as Partial<AppConfig>
+
+    // Decrypt secret values
+    for (const key of SECRET_KEYS) {
+      if (stored[key] && typeof stored[key] === 'string') {
+        ;(stored as Record<string, string>)[key] = decryptSecret(stored[key] as string)
+      }
+    }
+
     return { ...APP_CONFIG_DEFAULTS, ...stored }
   } catch {
     return { ...APP_CONFIG_DEFAULTS }
@@ -79,7 +131,16 @@ export function readConfig(): AppConfig {
 export function readRawConfig(): Partial<AppConfig> {
   try {
     const data = fs.readFileSync(getConfigPath(), 'utf-8')
-    return JSON.parse(data) as Partial<AppConfig>
+    const stored = JSON.parse(data) as Partial<AppConfig>
+
+    // Decrypt secret values
+    for (const key of SECRET_KEYS) {
+      if (stored[key] && typeof stored[key] === 'string') {
+        ;(stored as Record<string, string>)[key] = decryptSecret(stored[key] as string)
+      }
+    }
+
+    return stored
   } catch {
     return {}
   }
@@ -88,7 +149,16 @@ export function readRawConfig(): Partial<AppConfig> {
 export function writeConfig(config: Partial<AppConfig>): void {
   const existing = readRawConfig()
   const merged = { ...existing, ...config }
-  fs.writeFileSync(getConfigPath(), JSON.stringify(merged, null, 2), 'utf-8')
+
+  // Encrypt secret values before writing to disk
+  const toWrite = { ...merged }
+  for (const key of SECRET_KEYS) {
+    if (toWrite[key] && typeof toWrite[key] === 'string') {
+      ;(toWrite as Record<string, string>)[key] = encryptSecret(toWrite[key] as string)
+    }
+  }
+
+  fs.writeFileSync(getConfigPath(), JSON.stringify(toWrite, null, 2), 'utf-8')
 }
 
 export function getConfigValue<K extends keyof AppConfig>(key: K): AppConfig[K] {

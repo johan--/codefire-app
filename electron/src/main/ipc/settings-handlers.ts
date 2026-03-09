@@ -6,6 +6,53 @@ import { registerGmailHandlers } from './gmail-handlers'
 import type Database from 'better-sqlite3'
 import type { AppConfig } from '@shared/models'
 
+/**
+ * Keys the renderer is allowed to set.
+ * Credential and infrastructure keys are excluded to prevent
+ * a compromised renderer from redirecting API traffic.
+ */
+const ALLOWED_SETTINGS_KEYS = new Set<keyof AppConfig>([
+  // General
+  'checkForUpdates',
+  'notifyOnNewEmail',
+  'notifyOnClaudeDone',
+  'demoMode',
+  'preferredCLI',
+  // Terminal
+  'terminalFontSize',
+  'scrollbackLines',
+  'defaultTerminalPath',
+  // Engine (non-credential)
+  'contextSearchEnabled',
+  'embeddingModel',
+  'chatModel',
+  'chatMode',
+  'autoSnapshotSessions',
+  'autoUpdateCodebaseTree',
+  'mcpServerAutoStart',
+  'instructionInjection',
+  'snapshotDebounce',
+  // Gmail (non-credential)
+  'gmailSyncEnabled',
+  'gmailSyncInterval',
+  // Browser
+  'browserAllowedDomains',
+  'networkBodyLimit',
+  // Briefing
+  'briefingStalenessHours',
+  'briefingRSSFeeds',
+  'briefingSubreddits',
+  // Teams (non-infrastructure)
+  'premiumEnabled',
+  'autoShareSessions',
+  // Credentials — allowed because the Settings UI needs to set them,
+  // but they go through the same writeConfig path. The real protection
+  // is that they are written to the same file the user already controls.
+  'openRouterKey',
+  'googleClientId',
+  'googleClientSecret',
+])
+
 export function registerSettingsHandlers(
   db: Database.Database,
   onGmailReady?: (service: GmailService) => void
@@ -15,7 +62,19 @@ export function registerSettingsHandlers(
   })
 
   ipcMain.handle('settings:set', (_event, settings: Partial<AppConfig>) => {
-    writeConfig(settings)
+    // Filter to allowed keys only — reject supabaseUrl, supabaseAnonKey, etc.
+    const filtered: Partial<AppConfig> = {}
+    for (const [key, value] of Object.entries(settings)) {
+      if (ALLOWED_SETTINGS_KEYS.has(key as keyof AppConfig)) {
+        ;(filtered as Record<string, unknown>)[key] = value
+      }
+    }
+
+    if (Object.keys(filtered).length === 0) {
+      return { success: true }
+    }
+
+    writeConfig(filtered)
 
     // If Google credentials were provided, reinitialize Gmail service
     const config = readConfig()
