@@ -36,6 +36,11 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
       // Wire up PTY output → renderer
       const senderWindow = BrowserWindow.fromWebContents(_event.sender)
 
+      // Notify renderer so TerminalPanel can add a tab for this terminal
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        senderWindow.webContents.send('terminal:created', id)
+      }
+
       terminalService.onData(id, (data) => {
         // Send output to the window that created this terminal
         if (senderWindow && !senderWindow.isDestroyed()) {

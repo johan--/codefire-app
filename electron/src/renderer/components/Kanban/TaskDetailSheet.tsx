@@ -248,11 +248,33 @@ export default function TaskDetailSheet({
     try {
       const config = (await window.api.invoke('settings:get')) as { preferredCLI?: string } | undefined
       const cli = config?.preferredCLI ?? 'claude'
-      const escapedTitle = task.title.replace(/"/g, '\\"')
-      const command = `${cli} -p "${escapedTitle}"`
-      window.api.send('terminal:writeToActive', command + '\n')
-    } catch { /* ignore */ }
-    finally { setLaunching(false) }
+      // Build prompt from title + description (matching Swift implementation)
+      let prompt = task.title
+      if (task.description) {
+        prompt += '\n\n' + task.description
+      }
+      const escaped = prompt
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$')
+        .replace(/`/g, '\\`')
+        .replace(/\n/g, '\\n')
+      const command = `${cli} "${escaped}"`
+
+      // Create a dedicated terminal for this session
+      const project = await api.projects.get(task.projectId) as Project | undefined
+      const projectPath = project?.path ?? '.'
+      const termId = `task-${task.id}-${Date.now()}`
+      await window.api.invoke('terminal:create', termId, projectPath)
+      // Notify renderer to add the terminal tab
+      // (TerminalPanel listens for 'terminal:created')
+      // Brief delay for shell initialization, then write the command
+      setTimeout(() => {
+        window.api.send('terminal:write', termId, command + '\n')
+      }, 300)
+    } catch (err) {
+      console.error('Failed to launch session:', err)
+    } finally { setLaunching(false) }
   }
 
   return (
