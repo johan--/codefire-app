@@ -8,6 +8,7 @@ interface TaskCardProps {
   onClick: () => void
   noteCount?: number
   projectName?: string
+  isDragOverlay?: boolean
 }
 
 const PRIORITY_COLORS: Record<number, string> = {
@@ -65,7 +66,7 @@ function parseLabels(labels: string | null): string[] {
   }
 }
 
-export default function TaskCard({ task, onClick, noteCount = 0, projectName }: TaskCardProps) {
+export default function TaskCard({ task, onClick, noteCount = 0, projectName, isDragOverlay }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -73,13 +74,15 @@ export default function TaskCard({ task, onClick, noteCount = 0, projectName }: 
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: String(task.id) })
+  } = useSortable({ id: String(task.id), disabled: isDragOverlay })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const style = isDragOverlay
+    ? {}
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }
 
   const labels = parseLabels(task.labels)
 

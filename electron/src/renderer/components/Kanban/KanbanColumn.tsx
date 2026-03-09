@@ -11,12 +11,26 @@ const COLUMN_ICONS = {
   'check-circle': CheckCircle2,
 } as const
 
+// Static maps so Tailwind JIT can detect every class name at build time
+const DROP_BORDER: Record<string, string> = {
+  'text-orange-400': 'border-orange-500/50',
+  'text-blue-400': 'border-blue-500/50',
+  'text-green-400': 'border-green-500/50',
+}
+
+const DROP_EMPTY: Record<string, { text: string; bg: string; border: string }> = {
+  'text-orange-400': { text: 'text-orange-500/70', bg: 'bg-orange-500/5', border: 'border-orange-500/30' },
+  'text-blue-400': { text: 'text-blue-500/70', bg: 'bg-blue-500/5', border: 'border-blue-500/30' },
+  'text-green-400': { text: 'text-green-500/70', bg: 'bg-green-500/5', border: 'border-green-500/30' },
+}
+
 interface KanbanColumnProps {
   id: string
   title: string
   tasks: TaskItem[]
   color: string
   icon?: keyof typeof COLUMN_ICONS
+  isDropTarget?: boolean
   onTaskClick: (task: TaskItem) => void
   onAddTask: (title: string) => void
   projectNames?: Record<string, string>
@@ -28,6 +42,7 @@ export default function KanbanColumn({
   tasks,
   color,
   icon,
+  isDropTarget,
   onTaskClick,
   onAddTask,
   projectNames,
@@ -36,6 +51,8 @@ export default function KanbanColumn({
   const [showInput, setShowInput] = useState(false)
 
   const { setNodeRef, isOver } = useDroppable({ id })
+
+  const highlighted = isDropTarget || isOver
 
   const handleAdd = () => {
     const trimmed = newTitle.trim()
@@ -48,24 +65,27 @@ export default function KanbanColumn({
   return (
     <div
       className={`flex flex-col bg-neutral-900 rounded-cf border transition-colors min-h-0
-        ${isOver ? 'border-codefire-orange/50 bg-neutral-800/30' : 'border-neutral-800'}`}
+        ${highlighted ? `${DROP_BORDER[color] || 'border-neutral-500'} bg-neutral-800/30` : 'border-neutral-800'}`}
     >
       {/* Column header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-neutral-800 shrink-0">
-        {(() => {
-          const IconComponent = icon ? COLUMN_ICONS[icon] : null
-          return IconComponent
-            ? <IconComponent size={12} className={color} />
-            : <div className={`w-2 h-2 rounded-full ${color}`} />
-        })()}
-        <span className="text-sm text-neutral-300 font-medium">{title}</span>
-        <span className="text-xs text-neutral-500 ml-auto">{tasks.length}</span>
-        <button
-          className="text-neutral-500 hover:text-codefire-orange transition-colors"
-          onClick={() => setShowInput(true)}
-        >
-          <Plus size={14} />
-        </button>
+      <div className="shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          {(() => {
+            const IconComponent = icon ? COLUMN_ICONS[icon] : null
+            return IconComponent
+              ? <IconComponent size={12} className={color} />
+              : <div className={`w-2 h-2 rounded-full ${color}`} />
+          })()}
+          <span className="text-sm text-neutral-300 font-medium">{title}</span>
+          <span className="text-xs text-neutral-500 ml-auto">{tasks.length}</span>
+          <button
+            className="text-neutral-500 hover:text-codefire-orange transition-colors"
+            onClick={() => setShowInput(true)}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+        <div className={`h-0.5 mx-3 rounded-full ${color.replace('text-', 'bg-')}`} />
       </div>
 
       {/* Quick add input */}
@@ -110,7 +130,8 @@ export default function KanbanColumn({
         </SortableContext>
 
         {tasks.length === 0 && !showInput && (
-          <div className="text-xs text-neutral-600 text-center py-4">
+          <div className={`text-xs text-center py-4 rounded-cf transition-colors
+            ${highlighted ? `${DROP_EMPTY[color]?.text || 'text-neutral-400'} ${DROP_EMPTY[color]?.bg || 'bg-neutral-800/5'} border border-dashed ${DROP_EMPTY[color]?.border || 'border-neutral-500/30'}` : 'text-neutral-600'}`}>
             Drop tasks here
           </div>
         )}

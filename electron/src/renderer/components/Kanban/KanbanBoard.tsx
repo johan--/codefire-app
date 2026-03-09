@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   DndContext,
+  DragOverlay,
+  type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  closestCenter,
 } from '@dnd-kit/core'
 import type { TaskItem } from '@shared/models'
 import KanbanColumn from './KanbanColumn'
 import TaskDetailSheet from './TaskDetailSheet'
+import TaskCard from './TaskCard'
 
 interface KanbanBoardProps {
   todoTasks: TaskItem[]
@@ -37,6 +41,8 @@ const COLUMNS = [
   { id: 'done', title: 'Done', color: 'text-green-400', icon: 'check-circle' as const },
 ] as const
 
+const COLUMN_IDS = new Set<string>(COLUMNS.map((c) => c.id))
+
 export default function KanbanBoard({
   todoTasks,
   inProgressTasks,
@@ -47,6 +53,20 @@ export default function KanbanBoard({
   projectNames,
 }: KanbanBoardProps) {
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
+  const [activeTask, setActiveTask] = useState<TaskItem | null>(null)
+  const [overColumnId, setOverColumnId] = useState<string | null>(null)
+
+  // Local optimistic state: null means "use props", otherwise use this override
+  const [optimisticTasks, setOptimisticTasks] = useState<Record<string, TaskItem[]> | null>(null)
+  const pendingUpdate = useRef(false)
+
+  // Clear optimistic state when props change (server confirmed the update)
+  useEffect(() => {
+    if (pendingUpdate.current) {
+      setOptimisticTasks(null)
+      pendingUpdate.current = false
+    }
+  }, [todoTasks, inProgressTasks, doneTasks])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -54,7 +74,14 @@ export default function KanbanBoard({
     })
   )
 
+  const allTasks = useCallback(() => {
+    return [...todoTasks, ...inProgressTasks, ...doneTasks]
+  }, [todoTasks, inProgressTasks, doneTasks])
+
   const getTasksForColumn = (columnId: string): TaskItem[] => {
+    if (optimisticTasks) {
+      return optimisticTasks[columnId] || []
+    }
     switch (columnId) {
       case 'todo':
         return todoTasks
@@ -69,37 +96,88 @@ export default function KanbanBoard({
 
   const findTaskColumn = (taskId: string): string | null => {
     const id = Number(taskId)
+    if (optimisticTasks) {
+      for (const [col, tasks] of Object.entries(optimisticTasks)) {
+        if (tasks.some((t) => t.id === id)) return col
+      }
+      return null
+    }
     if (todoTasks.some((t) => t.id === id)) return 'todo'
     if (inProgressTasks.some((t) => t.id === id)) return 'in_progress'
     if (doneTasks.some((t) => t.id === id)) return 'done'
     return null
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const resolveColumnId = (id: string | number): string | null => {
+    const idStr = String(id)
+    if (COLUMN_IDS.has(idStr)) return idStr
+    return findTaskColumn(idStr)
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = allTasks().find((t) => String(t.id) === String(event.active.id))
+    setActiveTask(task || null)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event
+    if (!over) {
+      setOverColumnId(null)
+      return
+    }
+    setOverColumnId(resolveColumnId(over.id))
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
+
+    // Always clear drag state
+    setActiveTask(null)
+    setOverColumnId(null)
+
     if (!over) return
 
     const taskId = Number(active.id)
     const sourceColumn = findTaskColumn(String(active.id))
+    const targetColumn = resolveColumnId(over.id)
 
-    // Determine target column — over could be a column or a task within a column
-    let targetColumn: string | null = null
-    if (COLUMNS.some((c) => c.id === over.id)) {
-      targetColumn = over.id as string
-    } else {
-      targetColumn = findTaskColumn(String(over.id))
+    if (!targetColumn || !sourceColumn || targetColumn === sourceColumn) return
+
+    // Optimistic update: move the task in local state immediately
+    const task = allTasks().find((t) => t.id === taskId)
+    if (!task) return
+
+    const updatedTask = { ...task, status: targetColumn }
+    const newState: Record<string, TaskItem[]> = {
+      todo: todoTasks.filter((t) => t.id !== taskId),
+      in_progress: inProgressTasks.filter((t) => t.id !== taskId),
+      done: doneTasks.filter((t) => t.id !== taskId),
     }
+    newState[targetColumn] = [...newState[targetColumn], updatedTask]
+    setOptimisticTasks(newState)
+    pendingUpdate.current = true
 
-    if (!targetColumn || targetColumn === sourceColumn) return
+    // Fire-and-forget the backend update; if it fails, the next refetch corrects state
+    onUpdateTask(taskId, { status: targetColumn }).catch(() => {
+      // Revert optimistic update on failure
+      setOptimisticTasks(null)
+      pendingUpdate.current = false
+    })
+  }
 
-    await onUpdateTask(taskId, { status: targetColumn })
+  const handleDragCancel = () => {
+    setActiveTask(null)
+    setOverColumnId(null)
   }
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex h-full p-3 gap-3">
         <div className="flex-1 grid grid-cols-3 gap-3 min-h-0 min-w-0">
@@ -111,6 +189,7 @@ export default function KanbanBoard({
               color={col.color}
               icon={col.icon}
               tasks={getTasksForColumn(col.id)}
+              isDropTarget={overColumnId === col.id}
               onTaskClick={(task) => setSelectedTask(task)}
               onAddTask={(title) => onAddTask(title, col.id)}
               projectNames={projectNames}
@@ -139,6 +218,19 @@ export default function KanbanBoard({
           />
         )}
       </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeTask ? (
+          <div className="w-[280px] opacity-90 rotate-2">
+            <TaskCard
+              task={activeTask}
+              onClick={() => {}}
+              projectName={projectNames?.[activeTask.projectId]}
+              isDragOverlay
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   )
 }
