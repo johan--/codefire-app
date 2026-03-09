@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useGlobalTasks } from '@renderer/hooks/useGlobalTasks'
 import KanbanBoard from '@renderer/components/Kanban/KanbanBoard'
@@ -6,6 +6,7 @@ import { SortControls, sortTasks, type SortOption } from '@renderer/components/K
 import ProjectTaskSummary from '@renderer/components/Home/ProjectTaskSummary'
 import RecentEmails from '@renderer/components/Home/RecentEmails'
 import { ListTodo } from 'lucide-react'
+import { api } from '@renderer/lib/api'
 
 export default function AllProjectsView() {
   const [sort, setSort] = useState<SortOption>({ field: 'recent', dir: 'desc' })
@@ -19,6 +20,18 @@ export default function AllProjectsView() {
     updateTask,
     deleteTask,
   } = useGlobalTasks()
+
+  // Build project name map for showing project badges on global task cards
+  const [projectNames, setProjectNames] = useState<Record<string, string>>({})
+  useEffect(() => {
+    api.projects.list().then((projects) => {
+      const map: Record<string, string> = {}
+      for (const p of projects) {
+        if (p.id !== '__global__') map[p.id] = p.name
+      }
+      setProjectNames(map)
+    }).catch(() => {})
+  }, [])
 
   if (loading) {
     return (
@@ -68,6 +81,7 @@ export default function AllProjectsView() {
                 onUpdateTask={updateTask}
                 onDeleteTask={deleteTask}
                 onAddTask={createTask}
+                projectNames={projectNames}
               />
             </div>
           </Panel>

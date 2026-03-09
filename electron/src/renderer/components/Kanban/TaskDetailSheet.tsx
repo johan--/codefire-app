@@ -415,10 +415,25 @@ export default function TaskDetailSheet({
             Labels
           </label>
           <div className="flex flex-wrap gap-1 mb-2">
-            {labels.map((label) => (
+            {labels.map((label) => {
+              const lc = label.toLowerCase()
+              const labelColorMap: Record<string, string> = {
+                bug: 'bg-red-500/12 text-red-400 border-red-500/30',
+                feature: 'bg-blue-500/12 text-blue-400 border-blue-500/30',
+                refactor: 'bg-purple-500/12 text-purple-400 border-purple-500/30',
+                test: 'bg-green-500/12 text-green-400 border-green-500/30',
+                docs: 'bg-emerald-500/12 text-emerald-400 border-emerald-500/30',
+                performance: 'bg-orange-500/12 text-orange-400 border-orange-500/30',
+                security: 'bg-pink-500/12 text-pink-400 border-pink-500/30',
+                design: 'bg-cyan-500/12 text-cyan-400 border-cyan-500/30',
+                email: 'bg-green-500/12 text-green-400 border-green-500/30',
+                calendar: 'bg-indigo-500/12 text-indigo-400 border-indigo-500/30',
+              }
+              const colorClasses = labelColorMap[lc] || 'bg-neutral-700/80 text-neutral-300 border-neutral-600/50'
+              return (
               <span
                 key={label}
-                className="text-xs px-2 py-0.5 rounded-full bg-neutral-700/80 text-neutral-300 border border-neutral-600/50 flex items-center gap-1"
+                className={`text-xs px-2 py-0.5 rounded-full border flex items-center gap-1 ${colorClasses}`}
               >
                 {label}
                 <button
@@ -428,7 +443,8 @@ export default function TaskDetailSheet({
                   &times;
                 </button>
               </span>
-            ))}
+              )
+            })}
           </div>
           <div className="flex gap-1">
             <input

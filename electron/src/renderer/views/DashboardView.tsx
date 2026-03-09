@@ -221,7 +221,7 @@ function SessionCard({ session }: { session: Session }) {
   const cost = calculateSessionCost(session)
 
   return (
-    <div className="bg-neutral-800/70 rounded-lg p-3 border border-neutral-700/30 hover:bg-neutral-800 transition-colors">
+    <div className="bg-neutral-800/70 rounded-lg p-3 border border-neutral-700/30 hover:bg-neutral-800 hover:shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-150">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-[13px] font-semibold text-neutral-200 truncate">

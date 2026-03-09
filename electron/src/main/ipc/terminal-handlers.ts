@@ -1,6 +1,8 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { TerminalService } from '../services/TerminalService'
 import { NotificationService } from '../services/NotificationService'
+import * as path from 'path'
+import * as fs from 'fs'
 
 /**
  * Register IPC handlers for terminal management.
@@ -91,6 +93,21 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
     'terminal:resize',
     (_event, id: string, cols: number, rows: number) => {
       terminalService.resize(id, cols, rows)
+    }
+  )
+
+  // ─── Clipboard image save (for pasting images into terminal) ──────────────
+
+  ipcMain.handle(
+    'terminal:saveClipboardImage',
+    async (_event, imageData: number[], ext: string) => {
+      const safeExt = (ext || 'png').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
+      const tempDir = path.join(app.getPath('temp'), 'codefire-clipboard')
+      fs.mkdirSync(tempDir, { recursive: true })
+      const fileName = `clipboard-${Date.now()}.${safeExt}`
+      const filePath = path.join(tempDir, fileName)
+      fs.writeFileSync(filePath, Buffer.from(imageData))
+      return filePath
     }
   )
 }

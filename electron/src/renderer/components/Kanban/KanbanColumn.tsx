@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   color: string
   onTaskClick: (task: TaskItem) => void
   onAddTask: (title: string) => void
+  projectNames?: Record<string, string>
 }
 
 export default function KanbanColumn({
@@ -21,6 +22,7 @@ export default function KanbanColumn({
   color,
   onTaskClick,
   onAddTask,
+  projectNames,
 }: KanbanColumnProps) {
   const [newTitle, setNewTitle] = useState('')
   const [showInput, setShowInput] = useState(false)
@@ -89,6 +91,7 @@ export default function KanbanColumn({
               key={task.id}
               task={task}
               onClick={() => onTaskClick(task)}
+              projectName={projectNames?.[task.projectId]}
             />
           ))}
         </SortableContext>

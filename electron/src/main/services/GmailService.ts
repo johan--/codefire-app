@@ -251,9 +251,12 @@ export class GmailService {
 
       // Use AI-generated title/description when available, fallback to raw email data
       const title = triage?.title || email.subject || '(No subject)'
+      const fromLine = `From: ${email.fromName ? `${email.fromName} <${email.fromAddress}>` : email.fromAddress}`
+      const subjectLine = `Subject: ${email.subject || '(No subject)'}`
+      const bodyText = email.body || email.snippet || ''
       const description = triage?.description
-        ? `${triage.description}\n\nFrom: ${email.fromAddress}`
-        : `From: ${email.fromAddress}\nSnippet: ${email.snippet ?? ''}`
+        ? `${fromLine}\n${subjectLine}\n\n${triage.description}\n\n---\n\n**Original Email:**\n\n${bodyText}`
+        : `${fromLine}\n${subjectLine}\n\n${bodyText}`
 
       // Determine labels based on triage type
       const labels = ['gmail']
@@ -263,7 +266,7 @@ export class GmailService {
         projectId,
         title,
         description,
-        source: 'ai-extracted',
+        source: 'email',
         priority: mergedPriority,
         labels,
       })

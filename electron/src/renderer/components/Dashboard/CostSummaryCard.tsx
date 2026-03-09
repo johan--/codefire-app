@@ -70,7 +70,7 @@ export default function CostSummaryCard({ sessions }: CostSummaryCardProps) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <DollarSign size={16} className="text-codefire-orange" />
-          <h3 className="text-title text-neutral-200 font-medium">Cost Summary</h3>
+          <h3 className="text-[13px] text-neutral-200 font-semibold">Cost Summary</h3>
         </div>
         <div className="flex items-center gap-0.5">
           {ranges.map((r) => (

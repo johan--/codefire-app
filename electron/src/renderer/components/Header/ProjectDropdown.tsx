@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Folder, FolderOpen, Settings, Plus, ChevronDown, ChevronRight, Check, X, LayoutGrid } from 'lucide-react'
+import { Folder, FolderOpen, Settings, Plus, ChevronDown, Check, X, LayoutGrid } from 'lucide-react'
 import type { Project, Client } from '@shared/models'
 import { api } from '@renderer/lib/api'
 import SettingsModal from '@renderer/components/Settings/SettingsModal'
@@ -173,7 +173,7 @@ export default function ProjectDropdown() {
                         />
                         <span className="truncate font-semibold uppercase tracking-wider">{client.name}</span>
                         <span className="ml-auto text-neutral-600">
-                          {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                          <ChevronDown size={11} className={`transition-transform duration-150 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
                         </span>
                       </button>
                       {isExpanded && clientProjects.map((project) => (

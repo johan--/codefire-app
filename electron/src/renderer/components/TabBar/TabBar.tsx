@@ -10,7 +10,7 @@ import {
   GitBranch,
   Image,
   Clock,
-  Info,
+  LayoutDashboard,
   AudioLines,
   BarChart3,
   Activity,
@@ -27,7 +27,7 @@ interface TabBarProps {
 
 const tabs = [
   { id: 'Tasks', icon: CheckSquare },
-  { id: 'Dashboard', icon: Info },
+  { id: 'Dashboard', icon: LayoutDashboard },
   { id: 'Activity', icon: Activity },
   { id: 'Sessions', icon: Clock },
   { id: 'Notes', icon: FileText },

@@ -7,6 +7,7 @@ interface TaskCardProps {
   task: TaskItem
   onClick: () => void
   noteCount?: number
+  projectName?: string
 }
 
 const PRIORITY_COLORS: Record<number, string> = {
@@ -34,6 +35,27 @@ const SOURCE_BADGES: Record<string, { label: string; color: string; bg: string }
   chat: { label: 'CHAT', color: 'text-pink-300', bg: 'bg-pink-500/20' },
 }
 
+const LABEL_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+  bug: { text: 'text-red-400', bg: 'bg-red-500/12', border: 'border-red-500/30' },
+  feature: { text: 'text-blue-400', bg: 'bg-blue-500/12', border: 'border-blue-500/30' },
+  refactor: { text: 'text-purple-400', bg: 'bg-purple-500/12', border: 'border-purple-500/30' },
+  test: { text: 'text-green-400', bg: 'bg-green-500/12', border: 'border-green-500/30' },
+  docs: { text: 'text-emerald-400', bg: 'bg-emerald-500/12', border: 'border-emerald-500/30' },
+  performance: { text: 'text-orange-400', bg: 'bg-orange-500/12', border: 'border-orange-500/30' },
+  security: { text: 'text-pink-400', bg: 'bg-pink-500/12', border: 'border-pink-500/30' },
+  design: { text: 'text-cyan-400', bg: 'bg-cyan-500/12', border: 'border-cyan-500/30' },
+  email: { text: 'text-green-400', bg: 'bg-green-500/12', border: 'border-green-500/30' },
+  calendar: { text: 'text-indigo-400', bg: 'bg-indigo-500/12', border: 'border-indigo-500/30' },
+}
+
+function getLabelStyle(label: string): string {
+  const colors = LABEL_COLORS[label.toLowerCase()]
+  if (colors) {
+    return `${colors.bg} ${colors.text} ${colors.border} border`
+  }
+  return 'bg-neutral-700 text-neutral-400 border border-neutral-600/50'
+}
+
 function parseLabels(labels: string | null): string[] {
   if (!labels) return []
   try {
@@ -43,7 +65,7 @@ function parseLabels(labels: string | null): string[] {
   }
 }
 
-export default function TaskCard({ task, onClick, noteCount = 0 }: TaskCardProps) {
+export default function TaskCard({ task, onClick, noteCount = 0, projectName }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -66,7 +88,7 @@ export default function TaskCard({ task, onClick, noteCount = 0 }: TaskCardProps
       ref={setNodeRef}
       style={style}
       className={`bg-neutral-800 border border-neutral-700/50 rounded-cf p-2.5
-        hover:border-neutral-600 transition-colors cursor-pointer group
+        hover:border-neutral-600 hover:shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-150 cursor-pointer group
         ${isDragging ? 'shadow-lg ring-1 ring-codefire-orange/30' : ''}`}
       onClick={onClick}
     >
@@ -111,7 +133,7 @@ export default function TaskCard({ task, onClick, noteCount = 0 }: TaskCardProps
             {labels.slice(0, 3).map((label) => (
               <span
                 key={label}
-                className="text-xs px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-400 border border-neutral-600/50"
+                className={`text-xs px-1.5 py-0.5 rounded ${getLabelStyle(label)}`}
               >
                 {label}
               </span>
@@ -121,8 +143,13 @@ export default function TaskCard({ task, onClick, noteCount = 0 }: TaskCardProps
             )}
           </div>
 
-          {/* Footer: note count + date */}
+          {/* Footer: project badge + note count + date */}
           <div className="flex items-center gap-2 mt-1.5 text-[10px] text-neutral-500">
+            {projectName && (
+              <span className="px-1.5 py-0.5 rounded bg-codefire-orange/12 text-codefire-orange border border-codefire-orange/20 font-medium truncate max-w-[100px]">
+                {projectName}
+              </span>
+            )}
             {noteCount > 0 && (
               <div className="flex items-center gap-1">
                 <MessageSquare size={10} />

@@ -27,10 +27,12 @@ interface KanbanBoardProps {
   ) => Promise<void>
   onDeleteTask: (id: number) => Promise<void>
   onAddTask: (title: string, status?: string) => Promise<unknown>
+  /** Map of projectId → projectName, for showing project badge on task cards in global view */
+  projectNames?: Record<string, string>
 }
 
 const COLUMNS = [
-  { id: 'todo', title: 'Todo', color: 'bg-neutral-400' },
+  { id: 'todo', title: 'Todo', color: 'bg-orange-400' },
   { id: 'in_progress', title: 'In Progress', color: 'bg-codefire-orange' },
   { id: 'done', title: 'Done', color: 'bg-success' },
 ] as const
@@ -42,6 +44,7 @@ export default function KanbanBoard({
   onUpdateTask,
   onDeleteTask,
   onAddTask,
+  projectNames,
 }: KanbanBoardProps) {
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
 
@@ -109,6 +112,7 @@ export default function KanbanBoard({
               tasks={getTasksForColumn(col.id)}
               onTaskClick={(task) => setSelectedTask(task)}
               onAddTask={(title) => onAddTask(title, col.id)}
+              projectNames={projectNames}
             />
           ))}
         </div>

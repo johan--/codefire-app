@@ -4,7 +4,6 @@ import {
   MessageSquare,
   Wrench,
   GitBranch,
-  ChevronRight,
   ChevronDown,
   FileText,
 } from 'lucide-react'
@@ -128,9 +127,7 @@ export default function LiveSessionView({ projectId }: LiveSessionViewProps) {
           onClick={() => setDetailsExpanded((v) => !v)}
           className="flex items-center gap-1.5 py-1.5 text-[11px] font-semibold text-neutral-500 hover:text-neutral-300 transition-colors w-full"
         >
-          {detailsExpanded
-            ? <ChevronDown className="w-3 h-3" />
-            : <ChevronRight className="w-3 h-3" />}
+          <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${detailsExpanded ? 'rotate-0' : '-rotate-90'}`} />
           <span>Tool Usage & Files</span>
           {!detailsExpanded && (
             <span className="ml-auto text-[10px] text-neutral-600">

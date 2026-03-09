@@ -212,11 +212,12 @@ export type GmailChannel =
   | 'gmail:addRule'
   | 'gmail:removeRule'
   | 'gmail:pollEmails'
+  | 'gmail:processNewEmails'
   | 'gmail:listRecentEmails'
   | 'gmail:getEmailByMessageId'
 
 /** Channels that use ipcMain.handle (request-response) */
-export type TerminalHandleChannel = 'terminal:create' | 'terminal:kill' | 'terminal:available'
+export type TerminalHandleChannel = 'terminal:create' | 'terminal:kill' | 'terminal:available' | 'terminal:saveClipboardImage'
 
 /** Channels that use ipcRenderer.send (fire-and-forget, renderer → main) */
 export type TerminalSendChannel = 'terminal:write' | 'terminal:writeToActive' | 'terminal:resize'
