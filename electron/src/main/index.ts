@@ -84,7 +84,10 @@ try { fs.writeFileSync(tokenPath, browserSessionToken, { mode: 0o600 }) } catch 
 let liveWatcher: LiveSessionWatcher
 let sessionWatcher: SessionWatcher
 
+let deferredServicesInitialized = false
 function initDeferredServices() {
+  if (deferredServicesInitialized) return
+  deferredServicesInitialized = true
   // Gmail
   const googleClientId = config.googleClientId || process.env.GOOGLE_CLIENT_ID
   const googleClientSecret = config.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET

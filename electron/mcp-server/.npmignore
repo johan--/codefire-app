@@ -1,0 +1,2 @@
+# Empty .npmignore — prevents electron-builder from using .gitignore
+# which would exclude node_modules/ from the packaged app.

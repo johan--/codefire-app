@@ -23,6 +23,11 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
 
   // ─── Lifecycle (request-response) ─────────────────────────────────────────
 
+  // Buffer PTY output until the renderer signals it's ready to receive.
+  // Without this, the shell prompt arrives before xterm.js mounts its listener
+  // and the initial output is silently dropped — causing a blank terminal.
+  const pendingBuffers = new Map<string, string[]>()
+
   ipcMain.handle(
     'terminal:create',
     (_event, id: string, projectPath: string) => {
@@ -33,15 +38,23 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
         throw new Error('projectPath is required and must be a string')
       }
 
+      // Start buffering before PTY is created
+      pendingBuffers.set(id, [])
+
       terminalService.create(id, projectPath)
 
-      // Wire up PTY output → renderer
+      // Wire up PTY output → renderer (buffers until renderer signals ready)
       const senderWindow = BrowserWindow.fromWebContents(_event.sender)
 
       terminalService.onData(id, (data) => {
-        // Send output to the window that created this terminal
         if (senderWindow && !senderWindow.isDestroyed()) {
-          senderWindow.webContents.send('terminal:data', id, data)
+          const buffer = pendingBuffers.get(id)
+          if (buffer) {
+            // Renderer not ready yet — buffer the output
+            buffer.push(data)
+          } else {
+            senderWindow.webContents.send('terminal:data', id, data)
+          }
         }
       })
 
@@ -52,12 +65,26 @@ export function registerTerminalHandlers(terminalService: TerminalService) {
         // Send native OS notification for CLI session completion
         NotificationService.getInstance().notifyClaudeDone(id)
         // Clean up the session after exit
+        pendingBuffers.delete(id)
         terminalService.kill(id)
       })
 
       return { id }
     }
   )
+
+  // Renderer signals it has mounted the xterm.js listener and is ready for data
+  ipcMain.on('terminal:ready', (_event, id: string) => {
+    const buffer = pendingBuffers.get(id)
+    const senderWindow = BrowserWindow.fromWebContents(_event.sender)
+    if (buffer && senderWindow && !senderWindow.isDestroyed()) {
+      // Flush all buffered output
+      for (const data of buffer) {
+        senderWindow.webContents.send('terminal:data', id, data)
+      }
+    }
+    pendingBuffers.delete(id)
+  })
 
   ipcMain.handle('terminal:kill', (_event, id: string) => {
     if (!id || typeof id !== 'string') {

@@ -68,18 +68,27 @@ export function getSupabaseClient(): SupabaseClient | null {
     },
   })
 
-  const saved = loadPersistedSession()
-  if (saved) {
-    client.auth.setSession(saved)
-  }
-
-  client.auth.onAuthStateChange((_event, session) => {
+  // Listen for auth state changes BEFORE restoring the session so we catch
+  // the TOKEN_REFRESHED event that setSession may trigger.
+  client.auth.onAuthStateChange((event, session) => {
     if (session) {
       persistSession({ access_token: session.access_token, refresh_token: session.refresh_token })
-    } else {
+    } else if (event === 'SIGNED_OUT') {
+      // Only delete the persisted session on explicit sign-out.
+      // Token expiry (INITIAL_SESSION with null session) should NOT delete
+      // the file — the user can re-authenticate on next launch.
       persistSession(null)
     }
   })
+
+  const saved = loadPersistedSession()
+  if (saved) {
+    // setSession is async — must be awaited so the session is established
+    // before any renderer calls premium:getStatus
+    client.auth.setSession(saved).catch((err) => {
+      console.warn('[SupabaseClient] Failed to restore session:', err)
+    })
+  }
 
   return client
 }
