@@ -21,6 +21,21 @@ export default function RecordingsView({ projectId }: RecordingsViewProps) {
     })
   }, [projectId])
 
+  async function getOpenAiKey(): Promise<string | null> {
+    // Try settings first, fall back to localStorage
+    const config = await window.api.invoke('settings:get') as { openAiKey?: string } | undefined
+    if (config?.openAiKey) return config.openAiKey
+    return localStorage.getItem('openai_api_key')
+  }
+
+  async function autoTranscribeIfEnabled(id: string) {
+    const config = await window.api.invoke('settings:get') as { autoTranscribe?: boolean } | undefined
+    if (!config?.autoTranscribe) return
+    const key = await getOpenAiKey()
+    if (!key) return
+    handleTranscribe(id, key)
+  }
+
   async function handleRecordingComplete(blob: Blob, title: string) {
     const recording = await api.recordings.create({ projectId, title })
     const arrayBuffer = await blob.arrayBuffer()
@@ -31,6 +46,7 @@ export default function RecordingsView({ projectId }: RecordingsViewProps) {
     if (updated) {
       setRecordings((prev) => [updated, ...prev])
       setSelected(updated)
+      autoTranscribeIfEnabled(updated.id)
     }
   }
 
@@ -42,6 +58,7 @@ export default function RecordingsView({ projectId }: RecordingsViewProps) {
         if (updated) {
           setRecordings((prev) => [updated, ...prev])
           setSelected(updated)
+          autoTranscribeIfEnabled(updated.id)
         }
       }
     } catch (err) {
@@ -49,20 +66,18 @@ export default function RecordingsView({ projectId }: RecordingsViewProps) {
     }
   }
 
-  async function handleTranscribe(id: string) {
-    const apiKey = localStorage.getItem('openai_api_key')
+  async function handleTranscribe(id: string, providedKey?: string) {
+    const apiKey = providedKey || await getOpenAiKey()
     if (!apiKey) {
       const key = window.prompt('Enter your OpenAI API key for Whisper transcription:')
       if (!key) return
       localStorage.setItem('openai_api_key', key)
+      return handleTranscribe(id, key)
     }
 
     setIsTranscribing(true)
     try {
-      const updated = await api.recordings.transcribe(
-        id,
-        localStorage.getItem('openai_api_key')!
-      )
+      const updated = await api.recordings.transcribe(id, apiKey)
       if (updated) {
         setRecordings((prev) =>
           prev.map((r) => (r.id === id ? updated : r))

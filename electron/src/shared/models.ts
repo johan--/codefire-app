@@ -312,6 +312,8 @@ export interface AppConfig {
   defaultTerminalPath: string
 
   // Engine
+  openAiKey: string
+  autoTranscribe: boolean
   openRouterKey: string
   contextSearchEnabled: boolean
   embeddingModel: string

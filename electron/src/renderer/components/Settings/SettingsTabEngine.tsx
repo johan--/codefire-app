@@ -201,13 +201,21 @@ function MCPInstallPanel() {
 export default function SettingsTabEngine({ config, onChange }: Props) {
   return (
     <div className="space-y-6">
-      <Section title="API Key">
+      <Section title="API Keys">
         <TextInput
           label="OpenRouter API Key"
           hint="Used for embeddings, chat, and image generation. Get one at openrouter.ai"
           placeholder="sk-or-..."
           value={config.openRouterKey}
           onChange={(v) => onChange({ openRouterKey: v })}
+          secret
+        />
+        <TextInput
+          label="OpenAI API Key"
+          hint="Used for Whisper audio transcription. Get one at platform.openai.com"
+          placeholder="sk-..."
+          value={config.openAiKey}
+          onChange={(v) => onChange({ openAiKey: v })}
           secret
         />
       </Section>
@@ -252,6 +260,12 @@ export default function SettingsTabEngine({ config, onChange }: Props) {
       </Section>
 
       <Section title="Automation">
+        <Toggle
+          label="Auto-transcribe recordings"
+          hint="Automatically transcribe recordings with OpenAI Whisper when they finish"
+          value={config.autoTranscribe}
+          onChange={(v) => onChange({ autoTranscribe: v })}
+        />
         <Toggle
           label="Semantic code search"
           hint="Enable vector-based code search across projects"
