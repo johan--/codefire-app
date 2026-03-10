@@ -48,6 +48,13 @@ function openDatabase(): Database.Database {
   db.pragma('journal_mode = WAL')
   db.pragma('busy_timeout = 5000')
   db.pragma('foreign_keys = ON')
+
+  // Ensure browserCommands.authToken column exists (migration 27 may not have run yet)
+  const cols = db.pragma('table_info(browserCommands)') as { name: string }[]
+  if (cols.length > 0 && !cols.some(c => c.name === 'authToken')) {
+    db.exec('ALTER TABLE browserCommands ADD COLUMN authToken TEXT;')
+  }
+
   return db
 }
 
