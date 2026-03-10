@@ -278,21 +278,23 @@ export default function TaskDetailSheet({
   }
 
   return (
-    <div className="w-96 border-l border-neutral-800 bg-neutral-900 flex flex-col h-full shrink-0">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800 shrink-0">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h3 className="text-sm text-neutral-200 font-medium truncate">Task Details</h3>
+    <div className="w-96 bg-neutral-950 rounded-cf border border-neutral-800 flex flex-col h-full shrink-0">
+      {/* Header — matches Kanban column headers */}
+      <div className="shrink-0">
+        <div className="flex items-center gap-2 px-3 h-9">
+          <h3 className="text-sm text-neutral-300 font-medium truncate">Task Details</h3>
           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${sourceBadge.bg} ${sourceBadge.color} shrink-0`}>
             {sourceBadge.label}
           </span>
+          <div className="flex-1" />
+          <button
+            className="text-neutral-500 hover:text-neutral-300 transition-colors"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
         </div>
-        <button
-          className="text-neutral-500 hover:text-neutral-300 transition-colors ml-2"
-          onClick={onClose}
-        >
-          <X size={16} />
-        </button>
+        <div className="h-0.5 mx-3 rounded-full bg-codefire-orange/40" />
       </div>
 
       {/* Content */}

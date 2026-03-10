@@ -546,6 +546,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/** Read the browser session token written by the main Electron process */
+function getBrowserSessionToken(): string | null {
+  try {
+    const appData =
+      process.platform === 'win32'
+        ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'CodeFire')
+        : process.platform === 'darwin'
+          ? path.join(os.homedir(), 'Library', 'Application Support', 'CodeFire')
+          : path.join(os.homedir(), '.config', 'CodeFire')
+    const tokenPath = path.join(appData, '.browser-session-token')
+    return fs.readFileSync(tokenPath, 'utf-8').trim()
+  } catch {
+    return null
+  }
+}
+
 async function executeBrowserCommand(
   tool: string,
   args: Record<string, unknown> = {},
@@ -553,12 +569,13 @@ async function executeBrowserCommand(
 ): Promise<string> {
   const argsJSON = Object.keys(args).length > 0 ? JSON.stringify(args) : null
   const now = new Date().toISOString()
+  const authToken = getBrowserSessionToken()
 
   const result = db
     .prepare(
-      'INSERT INTO browserCommands (tool, args, status, createdAt) VALUES (?, ?, ?, ?)'
+      'INSERT INTO browserCommands (tool, args, status, createdAt, authToken) VALUES (?, ?, ?, ?, ?)'
     )
-    .run(tool, argsJSON, 'pending', now)
+    .run(tool, argsJSON, 'pending', now, authToken)
 
   const commandId = result.lastInsertRowid
 

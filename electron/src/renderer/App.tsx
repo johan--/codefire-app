@@ -3,6 +3,7 @@ import MainLayout from '@renderer/layouts/MainLayout'
 import ProjectLayout from '@renderer/layouts/ProjectLayout'
 import DeepLinkModal from '@renderer/components/DeepLinkModal'
 import SettingsModal from '@renderer/components/Settings/SettingsModal'
+import ErrorBoundary from '@renderer/components/ErrorBoundary'
 
 export default function App() {
   const params = new URLSearchParams(window.location.search)
@@ -37,10 +38,10 @@ export default function App() {
   }, [])
 
   return (
-    <>
+    <ErrorBoundary>
       {projectId ? <ProjectLayout projectId={projectId} /> : <MainLayout />}
       <DeepLinkModal />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
-    </>
+    </ErrorBoundary>
   )
 }

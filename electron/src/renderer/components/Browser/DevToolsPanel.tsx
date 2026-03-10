@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Trash2, ArrowDown, Filter, RefreshCw, X } from 'lucide-react'
+import { Trash2, ArrowDown, Filter, RefreshCw, X, MousePointer2 } from 'lucide-react'
 
 interface ConsoleEntry {
   level: string
@@ -46,6 +46,8 @@ export default function DevToolsPanel({
   const [networkFilter, setNetworkFilter] = useState<string>('')
   const [networkTypeFilter, setNetworkTypeFilter] = useState<NetworkTypeFilter>('all')
   const [autoScroll, setAutoScroll] = useState(true)
+  const [pickerActive, setPickerActive] = useState(false)
+  const [pickedElement, setPickedElement] = useState<{ tag: string; id: string; classes: string; text: string; rect: string } | null>(null)
   const consoleEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll console
@@ -185,6 +187,19 @@ export default function DevToolsPanel({
     }
   }, [activeTab, getActiveWebview])
 
+  // Parse element picker results from console messages
+  useEffect(() => {
+    for (const entry of consoleEntries) {
+      if (entry.message.startsWith('__CF_PICK__')) {
+        try {
+          const info = JSON.parse(entry.message.slice('__CF_PICK__'.length))
+          setPickedElement(info)
+          setPickerActive(false)
+        } catch {}
+      }
+    }
+  }, [consoleEntries])
+
   // Parse network entries from console messages
   useEffect(() => {
     for (const entry of consoleEntries) {
@@ -261,7 +276,7 @@ export default function DevToolsPanel({
         e.message.toLowerCase().includes(consoleFilter.toLowerCase()) &&
         !e.message.startsWith('__CF_NET')
       )
-    : consoleEntries.filter((e) => !e.message.startsWith('__CF_NET'))
+    : consoleEntries.filter((e) => !e.message.startsWith('__CF_NET') && !e.message.startsWith('__CF_PICK__'))
 
   const filteredNetwork = networkEntries.filter((e) => {
     if (networkFilter && !e.url.toLowerCase().includes(networkFilter.toLowerCase())) return false
@@ -368,19 +383,82 @@ export default function DevToolsPanel({
             </>
           )}
           {activeTab === 'elements' && (
-            <button
-              onClick={() => {
-                setElementTree('')
-                setTimeout(() => {
-                  setActiveTab('console')
-                  setTimeout(() => setActiveTab('elements'), 0)
-                }, 0)
-              }}
-              className="p-1 text-neutral-600 hover:text-neutral-400 transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw size={12} />
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const wv = getActiveWebview()
+                  if (!wv) return
+                  const newState = !pickerActive
+                  setPickerActive(newState)
+                  setPickedElement(null)
+                  if (newState) {
+                    wv.executeJavaScript(`
+                      (function() {
+                        if (window.__cfPickerCleanup) window.__cfPickerCleanup();
+                        let overlay = document.createElement('div');
+                        overlay.id = '__cf_picker_overlay';
+                        overlay.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #f97316;background:rgba(249,115,22,0.1);z-index:2147483647;transition:all 0.05s;display:none;';
+                        document.body.appendChild(overlay);
+                        function onMove(e) {
+                          const el = document.elementFromPoint(e.clientX, e.clientY);
+                          if (!el || el === overlay) return;
+                          const r = el.getBoundingClientRect();
+                          overlay.style.display = 'block';
+                          overlay.style.left = r.left + 'px';
+                          overlay.style.top = r.top + 'px';
+                          overlay.style.width = r.width + 'px';
+                          overlay.style.height = r.height + 'px';
+                        }
+                        function onClick(e) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const el = document.elementFromPoint(e.clientX, e.clientY);
+                          if (!el || el === overlay) return;
+                          const r = el.getBoundingClientRect();
+                          const info = {
+                            tag: el.tagName.toLowerCase(),
+                            id: el.id || '',
+                            classes: el.className && typeof el.className === 'string' ? el.className : '',
+                            text: (el.textContent || '').trim().slice(0, 100),
+                            rect: Math.round(r.width) + 'x' + Math.round(r.height) + ' at (' + Math.round(r.left) + ',' + Math.round(r.top) + ')'
+                          };
+                          console.log('__CF_PICK__' + JSON.stringify(info));
+                          cleanup();
+                        }
+                        function cleanup() {
+                          document.removeEventListener('mousemove', onMove, true);
+                          document.removeEventListener('click', onClick, true);
+                          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                          delete window.__cfPickerCleanup;
+                        }
+                        window.__cfPickerCleanup = cleanup;
+                        document.addEventListener('mousemove', onMove, true);
+                        document.addEventListener('click', onClick, true);
+                      })();
+                    `).catch(() => {})
+                  } else {
+                    wv.executeJavaScript(`if (window.__cfPickerCleanup) window.__cfPickerCleanup();`).catch(() => {})
+                  }
+                }}
+                className={`p-1 rounded transition-colors ${pickerActive ? 'text-codefire-orange bg-codefire-orange/20' : 'text-neutral-600 hover:text-neutral-400'}`}
+                title="Element picker — click to select an element on the page"
+              >
+                <MousePointer2 size={12} />
+              </button>
+              <button
+                onClick={() => {
+                  setElementTree('')
+                  setTimeout(() => {
+                    setActiveTab('console')
+                    setTimeout(() => setActiveTab('elements'), 0)
+                  }, 0)
+                }}
+                className="p-1 text-neutral-600 hover:text-neutral-400 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw size={12} />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -459,6 +537,28 @@ export default function DevToolsPanel({
 
           {activeTab === 'elements' && (
             <div className="p-2">
+              {/* Picked element info */}
+              {pickedElement && (
+                <div className="mb-2 p-2 bg-neutral-800/60 rounded border border-neutral-700 text-[10px] space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-codefire-orange font-semibold">&lt;{pickedElement.tag}&gt;</span>
+                    {pickedElement.id && <span className="text-blue-400">#{pickedElement.id}</span>}
+                    <span className="text-neutral-500 ml-auto">{pickedElement.rect}</span>
+                  </div>
+                  {pickedElement.classes && (
+                    <div className="text-neutral-400 truncate">
+                      <span className="text-neutral-600">class: </span>
+                      {pickedElement.classes}
+                    </div>
+                  )}
+                  {pickedElement.text && (
+                    <div className="text-neutral-500 truncate">
+                      <span className="text-neutral-600">text: </span>
+                      {pickedElement.text}
+                    </div>
+                  )}
+                </div>
+              )}
               {!elementTree ? (
                 <div className="text-center text-neutral-600 text-xs py-4">
                   No page loaded. Navigate to a page to inspect elements.

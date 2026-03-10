@@ -7,6 +7,20 @@ import CaptureIssueSheet from '@renderer/components/Browser/CaptureIssueSheet'
 import ScreenshotAnnotation from '@renderer/components/Browser/ScreenshotAnnotation'
 import DevToolsPanel from '@renderer/components/Browser/DevToolsPanel'
 
+/** Block dangerous URL schemes and cloud metadata endpoints */
+function isUrlSafe(url: string): boolean {
+  const lower = url.trim().toLowerCase()
+  const blocked = ['javascript:', 'file:', 'data:', 'blob:', 'vbscript:']
+  if (blocked.some((scheme) => lower.startsWith(scheme))) return false
+  // Block cloud metadata IPs
+  try {
+    const parsed = new URL(lower.startsWith('http') ? lower : `https://${lower}`)
+    const host = parsed.hostname
+    if (host === '169.254.169.254' || host === '100.100.100.200' || host === 'metadata.google.internal') return false
+  } catch { /* not a valid URL — let the browser handle it */ }
+  return true
+}
+
 interface BrowserViewProps {
   projectId: string
 }
@@ -168,6 +182,7 @@ export default function BrowserView({ projectId }: BrowserViewProps) {
         switch (tool) {
           case 'browser_navigate': {
             if (!wv) throw new Error('No active webview')
+            if (!isUrlSafe(args.url)) throw new Error(`Blocked navigation to unsafe URL: ${args.url}`)
             await new Promise<void>((resolve, reject) => {
               const timeout = setTimeout(() => reject(new Error('Navigation timed out')), 30_000)
               const onStop = () => { clearTimeout(timeout); resolve() }
@@ -284,6 +299,8 @@ export default function BrowserView({ projectId }: BrowserViewProps) {
         normalized = `https://www.google.com/search?q=${encodeURIComponent(normalized)}`
       }
     }
+
+    if (!isUrlSafe(normalized)) return
 
     navigateTab(activeTabId, normalized)
 

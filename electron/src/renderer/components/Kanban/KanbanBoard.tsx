@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { api } from '@renderer/lib/api'
 import {
   DndContext,
   DragOverlay,
@@ -36,6 +37,8 @@ interface KanbanBoardProps {
   projectNames?: Record<string, string>
   /** Project path for launching CLI sessions */
   projectPath?: string
+  /** Project ID for task creation */
+  projectId?: string
 }
 
 const COLUMNS = [
@@ -55,6 +58,7 @@ export default function KanbanBoard({
   onAddTask,
   projectNames,
   projectPath,
+  projectId,
 }: KanbanBoardProps) {
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
   const [activeTask, setActiveTask] = useState<TaskItem | null>(null)
@@ -244,14 +248,31 @@ export default function KanbanBoard({
           onClose={() => setCreateModalStatus(null)}
           defaultStatus={createModalStatus ?? 'todo'}
           onCreate={async (data) => {
-            const task = await onAddTask(data.title, data.status) as TaskItem | undefined
-            if (task && (data.priority || data.labels.length || data.description)) {
-              await onUpdateTask(task.id, {
-                ...(data.description ? { description: data.description } : {}),
-                ...(data.priority ? { priority: data.priority } : {}),
-                ...(data.labels.length ? { labels: data.labels } : {}),
-              })
+            if (!projectId) {
+              // Fallback: use old two-step approach
+              const task = await onAddTask(data.title, data.status) as TaskItem | undefined
+              if (task && (data.priority || data.labels.length || data.description)) {
+                await onUpdateTask(task.id, {
+                  ...(data.description ? { description: data.description } : {}),
+                  ...(data.priority ? { priority: data.priority } : {}),
+                  ...(data.labels.length ? { labels: data.labels } : {}),
+                })
+              }
+              return
             }
+            // Create with all fields at once to avoid two-step create+update race
+            const task = await api.tasks.create({
+              projectId,
+              title: data.title,
+              description: data.description,
+              priority: data.priority,
+              labels: data.labels.length > 0 ? data.labels : undefined,
+              source: 'manual',
+              isGlobal: projectId === '__global__',
+            })
+            // Set non-default status if needed, and trigger refetch
+            const statusUpdate = data.status && data.status !== 'todo' ? { status: data.status } : {}
+            await onUpdateTask(task.id, { title: data.title, ...statusUpdate })
           }}
         />
 

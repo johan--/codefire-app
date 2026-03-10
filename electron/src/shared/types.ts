@@ -78,7 +78,7 @@ export type MemoryChannel =
   | 'memory:delete'
   | 'memory:create'
 
-export type RulesChannel = 'rules:list' | 'rules:read' | 'rules:write' | 'rules:create'
+export type RulesChannel = 'rules:list' | 'rules:read' | 'rules:write' | 'rules:create' | 'rules:generate'
 
 export type ServiceChannel =
   | 'services:detect'

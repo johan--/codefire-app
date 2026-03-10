@@ -50,7 +50,8 @@ export function registerAllHandlers(
   contextEngine?: ContextEngine,
   mcpManager?: MCPServerManager,
   fileWatcher?: FileWatcher,
-  agentWatcher?: AgentProcessWatcher
+  agentWatcher?: AgentProcessWatcher,
+  browserSessionToken?: string
 ) {
   registerProjectHandlers(db)
   registerTaskHandlers(db)
@@ -86,7 +87,7 @@ export function registerAllHandlers(
   registerImageHandlers(db)
   registerRecordingHandlers(db)
   registerSettingsHandlers(db)
-  registerChatHandlers(db)
+  registerChatHandlers(db, browserSessionToken)
   registerBriefingHandlers(db)
   registerUpdateHandlers()
   registerProjectDocHandlers(db)

@@ -59,6 +59,7 @@ export default function TasksView({ projectId, projectPath }: TasksViewProps) {
           onDeleteTask={deleteTask}
           onAddTask={createTask}
           projectPath={projectPath}
+          projectId={projectId}
         />
       </div>
     </div>

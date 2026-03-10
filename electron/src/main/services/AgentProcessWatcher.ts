@@ -29,14 +29,23 @@ interface ProcRecord {
   ppid: number
   command: string
   startTime: Date | null
+  cpuTimeMs: number // cumulative CPU time in milliseconds (kernel + user)
 }
 
-// Frozen threshold: 3 minutes (same as Swift)
-const FROZEN_THRESHOLD_SECONDS = 180
+/**
+ * If an agent sub-process has had zero CPU activity for this many consecutive
+ * poll cycles (3s each), it is considered potentially frozen.
+ * 10 cycles * 3s = 30 seconds of zero CPU delta → frozen.
+ */
+const FROZEN_IDLE_CYCLES = 10
 
 export class AgentProcessWatcher {
   private timer: ReturnType<typeof setInterval> | null = null
   private state: AgentMonitorState = { claudeProcess: null, agents: [] }
+  /** Tracks the last known CPU time (ms) per PID for delta comparison */
+  private lastCpuTime = new Map<number, number>()
+  /** How many consecutive polls each PID has been idle (no CPU delta) */
+  private idleCycles = new Map<number, number>()
 
   start(): void {
     if (this.timer) return
@@ -84,7 +93,11 @@ export class AgentProcessWatcher {
   // ─── Process scanning ───────────────────────────────────────────────────────
 
   private scan(records: ProcRecord[]): AgentMonitorState {
-    if (records.length === 0) return { claudeProcess: null, agents: [] }
+    if (records.length === 0) {
+      this.lastCpuTime.clear()
+      this.idleCycles.clear()
+      return { claudeProcess: null, agents: [] }
+    }
 
     const now = new Date()
 
@@ -103,20 +116,48 @@ export class AgentProcessWatcher {
       }
     }
 
-    if (claudeProcs.length === 0) return { claudeProcess: null, agents: [] }
+    if (claudeProcs.length === 0) {
+      this.lastCpuTime.clear()
+      this.idleCycles.clear()
+      return { claudeProcess: null, agents: [] }
+    }
+
+    // Update CPU idle tracking for all detected claude processes
+    const seenPids = new Set<number>()
+    for (const proc of claudeProcs) {
+      seenPids.add(proc.pid)
+      const prev = this.lastCpuTime.get(proc.pid)
+      this.lastCpuTime.set(proc.pid, proc.cpuTimeMs)
+      if (prev !== undefined && proc.cpuTimeMs <= prev) {
+        // No CPU activity since last poll → increment idle counter
+        this.idleCycles.set(proc.pid, (this.idleCycles.get(proc.pid) ?? 0) + 1)
+      } else {
+        // CPU activity detected → reset idle counter
+        this.idleCycles.set(proc.pid, 0)
+      }
+    }
+    // Clean up entries for processes that no longer exist
+    for (const pid of this.lastCpuTime.keys()) {
+      if (!seenPids.has(pid)) {
+        this.lastCpuTime.delete(pid)
+        this.idleCycles.delete(pid)
+      }
+    }
 
     // Main claude = oldest PID (first launched)
     claudeProcs.sort((a, b) => a.pid - b.pid)
     const main = claudeProcs[0]
 
-    const claudeProcess = this.toAgentInfo(main, now, 'Claude Code')
+    // Main process is never marked as frozen
+    const claudeProcess = this.toAgentInfo(main, now, 'Claude Code', false)
 
     // Agents = other claude processes that are descendants of the main claude process
     const agents: AgentInfo[] = []
     for (let i = 1; i < claudeProcs.length; i++) {
       const proc = claudeProcs[i]
       if (this.isDescendantOf(proc.pid, main.pid, procMap)) {
-        agents.push(this.toAgentInfo(proc, now, 'Agent'))
+        const idle = this.idleCycles.get(proc.pid) ?? 0
+        agents.push(this.toAgentInfo(proc, now, 'Agent', idle >= FROZEN_IDLE_CYCLES))
       }
     }
 
@@ -134,7 +175,7 @@ export class AgentProcessWatcher {
     return false
   }
 
-  private toAgentInfo(proc: ProcRecord, now: Date, label: string): AgentInfo {
+  private toAgentInfo(proc: ProcRecord, now: Date, label: string, frozen: boolean): AgentInfo {
     const elapsedSeconds = proc.startTime
       ? Math.max(0, Math.floor((now.getTime() - proc.startTime.getTime()) / 1000))
       : 0
@@ -143,7 +184,7 @@ export class AgentProcessWatcher {
       parentPid: proc.ppid,
       elapsedSeconds,
       command: label,
-      isPotentiallyFrozen: elapsedSeconds > FROZEN_THRESHOLD_SECONDS,
+      isPotentiallyFrozen: frozen,
     }
   }
 
@@ -172,7 +213,7 @@ export class AgentProcessWatcher {
   private fetchProcessesWindows(): ProcRecord[] {
     try {
       const output = execSync(
-        'wmic process where "CommandLine like \'%claude%\' or CommandLine like \'%anthropic%\'" get ProcessId,ParentProcessId,CommandLine,CreationDate /FORMAT:CSV',
+        'wmic process where "CommandLine like \'%claude%\' or CommandLine like \'%anthropic%\'" get ProcessId,ParentProcessId,CommandLine,CreationDate,KernelModeTime,UserModeTime /FORMAT:CSV',
         { encoding: 'utf8', timeout: 5000, windowsHide: true }
       )
       return this.parseWmicCsv(output)
@@ -186,7 +227,7 @@ export class AgentProcessWatcher {
    */
   private fetchProcessesUnix(): ProcRecord[] {
     try {
-      const output = execSync('ps -eo pid,ppid,lstart,args', {
+      const output = execSync('ps -eo pid,ppid,cputime,lstart,args', {
         encoding: 'utf8',
         timeout: 5000,
       })
@@ -216,6 +257,8 @@ export class AgentProcessWatcher {
     const dateIdx = headers.indexOf('CreationDate')
     const ppidIdx = headers.indexOf('ParentProcessId')
     const pidIdx = headers.indexOf('ProcessId')
+    const kernelIdx = headers.indexOf('KernelModeTime')
+    const userIdx = headers.indexOf('UserModeTime')
 
     for (let i = headerIndex + 1; i < lines.length; i++) {
       const line = lines[i].trim()
@@ -230,10 +273,14 @@ export class AgentProcessWatcher {
       const ppid = parseInt(parts[ppidIdx], 10)
       const command = parts[cmdIdx] || ''
       const creationDate = this.parseWmicDate(parts[dateIdx] || '')
+      // KernelModeTime + UserModeTime are in 100ns units; convert to ms
+      const kernelTime = parseInt(parts[kernelIdx] || '0', 10) || 0
+      const userTime = parseInt(parts[userIdx] || '0', 10) || 0
+      const cpuTimeMs = Math.floor((kernelTime + userTime) / 10000)
 
       if (isNaN(pid) || isNaN(ppid)) continue
 
-      records.push({ pid, ppid, command, startTime: creationDate })
+      records.push({ pid, ppid, command, startTime: creationDate, cpuTimeMs })
     }
     return records
   }
@@ -303,20 +350,30 @@ export class AgentProcessWatcher {
       const line = lines[i].trim()
       if (!line) continue
 
-      // ps -eo pid,ppid,lstart,args
-      // lstart format: "Day Mon DD HH:MM:SS YYYY" (exactly 24 chars after pid/ppid)
-      const match = line.match(/^\s*(\d+)\s+(\d+)\s+\w{3}\s+(\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.+)$/)
+      // ps -eo pid,ppid,cputime,lstart,args
+      // cputime format: "HH:MM:SS" or "MM:SS"
+      // lstart format: "Day Mon DD HH:MM:SS YYYY"
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+([\d:]+)\s+\w{3}\s+(\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.+)$/)
       if (!match) continue
 
       const pid = parseInt(match[1], 10)
       const ppid = parseInt(match[2], 10)
-      const startTime = new Date(match[3])
-      const command = match[4]
+      const cpuTimeMs = this.parseCpuTime(match[3])
+      const startTime = new Date(match[4])
+      const command = match[5]
 
       if (!this.isClaude(command)) continue
 
-      records.push({ pid, ppid, command, startTime: isNaN(startTime.getTime()) ? null : startTime })
+      records.push({ pid, ppid, command, startTime: isNaN(startTime.getTime()) ? null : startTime, cpuTimeMs })
     }
     return records
+  }
+
+  /** Parse ps cputime format "HH:MM:SS" or "MM:SS" to milliseconds */
+  private parseCpuTime(str: string): number {
+    const parts = str.split(':').map(Number)
+    if (parts.length === 3) return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
+    if (parts.length === 2) return (parts[0] * 60 + parts[1]) * 1000
+    return 0
   }
 }

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, session } from 'electron'
+import { randomBytes } from 'crypto'
 import path from 'path'
 import { getDatabase, closeDatabase } from './database/connection'
 import { initPathValidator } from './services/PathValidator'
@@ -74,6 +75,12 @@ let searchEngine: SearchEngine
 let contextEngine: ContextEngine
 let fileWatcher: FileWatcher
 let browserExecutor: BrowserCommandExecutor | null = null
+/** Session token for browser command auth — shared between IPC handlers, executor, and MCP server */
+const browserSessionToken = randomBytes(32).toString('hex')
+// Write token to app data so MCP server can read it
+import * as fs from 'fs'
+const tokenPath = path.join(app.getPath('userData'), '.browser-session-token')
+try { fs.writeFileSync(tokenPath, browserSessionToken, { mode: 0o600 }) } catch { /* ignore */ }
 let liveWatcher: LiveSessionWatcher
 let sessionWatcher: SessionWatcher
 
@@ -109,7 +116,7 @@ function initDeferredServices() {
   }
 
   // Browser command executor
-  browserExecutor = new BrowserCommandExecutor(db)
+  browserExecutor = new BrowserCommandExecutor(db, browserSessionToken)
   browserExecutor.start()
 
   // Start agent process watcher
@@ -263,7 +270,7 @@ app.on('open-url', (event, url) => {
 })
 
 // Register essential IPC handlers immediately (db, window, terminal, git, MCP)
-registerAllHandlers(db, windowManager, terminalService, gitService, undefined, undefined, undefined, undefined, mcpManager, undefined, agentWatcher)
+registerAllHandlers(db, windowManager, terminalService, gitService, undefined, undefined, undefined, undefined, mcpManager, undefined, agentWatcher, browserSessionToken)
 
 
 let isQuitting = false

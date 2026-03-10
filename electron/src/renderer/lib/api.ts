@@ -263,6 +263,8 @@ export const api = {
       invoke('rules:write', filePath, content) as Promise<void>,
     create: (filePath: string, template?: string) =>
       invoke('rules:create', filePath, template) as Promise<void>,
+    generate: (projectPath: string, scope: string) =>
+      invoke('rules:generate', projectPath, scope) as Promise<string>,
   },
 
   services: {

@@ -163,6 +163,7 @@ export default function GitView({ projectPath }: GitViewProps) {
                   hash={commit.hash}
                   subject={commit.subject}
                   date={commit.date}
+                  author={commit.author}
                 />
               ))}
             </div>

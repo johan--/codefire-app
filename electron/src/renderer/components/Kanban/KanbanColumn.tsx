@@ -78,7 +78,7 @@ export default function KanbanColumn({
 
   return (
     <div
-      className={`flex flex-col bg-neutral-950 rounded-cf border transition-colors min-h-0
+      className={`flex flex-col bg-[#111111] rounded-cf border transition-colors min-h-0
         ${highlighted ? `${DROP_BORDER[color] || 'border-neutral-500'} bg-neutral-800/30` : 'border-neutral-800'}`}
     >
       {/* Column header */}

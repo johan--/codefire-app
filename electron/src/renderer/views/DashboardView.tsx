@@ -145,37 +145,41 @@ export default function DashboardView({ projectId, projectPath, onTabChange }: D
       {/* Dev Tools */}
       {projectPath && <DevToolsCard projectPath={projectPath} />}
 
+      {/* 2x2 Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Top-left: Cost Summary */}
         <CostSummaryCard sessions={sessions} />
 
+        {/* Top-right: Live Session */}
         <LiveSessionView projectId={projectId} />
 
+        {/* Bottom-left: Task Launcher */}
         <TaskLauncherCard projectId={projectId} />
-      </div>
 
-      {/* Stat Cards — matching Swift DashboardView */}
-      <div className="flex gap-3 mt-4">
-        <StatCard
-          icon={<Clock size={16} />}
-          value={sessions.length}
-          label="Sessions"
-          color="text-blue-400"
-          bgColor="bg-blue-500/10"
-        />
-        <StatCard
-          icon={<CircleDotDashed size={16} />}
-          value={todoTasks.length}
-          label="Pending"
-          color="text-codefire-orange"
-          bgColor="bg-codefire-orange/10"
-        />
-        <StatCard
-          icon={<ArrowRightLeft size={16} />}
-          value={inProgressTasks.length}
-          label="In Progress"
-          color="text-green-400"
-          bgColor="bg-green-500/10"
-        />
+        {/* Bottom-right: Stat Cards */}
+        <div className="flex gap-3 items-start">
+          <StatCard
+            icon={<Clock size={16} />}
+            value={sessions.length}
+            label="Sessions"
+            color="text-blue-400"
+            bgColor="bg-blue-500/10"
+          />
+          <StatCard
+            icon={<CircleDotDashed size={16} />}
+            value={todoTasks.length}
+            label="Pending"
+            color="text-codefire-orange"
+            bgColor="bg-codefire-orange/10"
+          />
+          <StatCard
+            icon={<ArrowRightLeft size={16} />}
+            value={inProgressTasks.length}
+            label="In Progress"
+            color="text-green-400"
+            bgColor="bg-green-500/10"
+          />
+        </div>
       </div>
 
       {/* Recent Sessions — matching Swift DashboardView */}
