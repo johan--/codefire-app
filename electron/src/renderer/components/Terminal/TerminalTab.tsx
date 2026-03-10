@@ -164,6 +164,9 @@ export default function TerminalTab({ terminalId, isActive }: TerminalTabProps) 
       }
     )
 
+    // Signal main process that xterm.js listener is mounted — flush buffered output
+    window.api.send('terminal:ready', terminalId)
+
     // ─── PTY exit ─────────────────────────────────────────────────────────
     const removeExitListener = window.api.on(
       'terminal:exit',

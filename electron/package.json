@@ -1,6 +1,6 @@
 {
   "name": "codefire-electron",
-  "version": "1.2.4",
+  "version": "1.2.6",
   "description": "CodeFire — Cross-platform companion for AI coding CLIs",
   "main": "dist-electron/main/index.js",
   "author": {
@@ -164,19 +164,23 @@
         {
           "target": "dmg",
           "arch": [
-            "x64"
+            "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64"
+            "arm64"
           ]
         }
       ],
       "icon": "resources/icon.icns",
       "category": "public.app-category.developer-tools",
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true
     },
     "dmg": {
       "title": "${productName}",
