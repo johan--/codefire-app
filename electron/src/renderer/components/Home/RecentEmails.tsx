@@ -79,7 +79,7 @@ export default function RecentEmails() {
 
   // Header — always shown
   const header = (
-    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-neutral-800 shrink-0">
+    <div className="flex items-center gap-2 px-3 h-9 border-b border-neutral-800 bg-neutral-950 shrink-0">
       <Mail size={12} className="text-green-500" />
       <span className="text-xs font-semibold text-neutral-200">Recent Emails</span>
 

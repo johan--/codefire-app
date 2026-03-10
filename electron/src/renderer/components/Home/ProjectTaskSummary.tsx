@@ -103,7 +103,7 @@ export default function ProjectTaskSummary() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-neutral-800">
+      <div className="flex items-center gap-2 px-3 h-9 border-b border-neutral-800 bg-neutral-950">
         <FolderKanban size={12} className="text-codefire-orange" />
         <span className="text-xs font-semibold text-neutral-200">
           Active Tasks by Project
