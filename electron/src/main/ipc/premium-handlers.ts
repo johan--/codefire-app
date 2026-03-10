@@ -154,7 +154,22 @@ export function registerPremiumHandlers(
       .eq('project_id', remoteId)
       .order('created_at', { ascending: false })
       .limit(limit || 50)
-    return data || []
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      projectId: d.project_id,
+      userId: d.user_id,
+      eventType: d.event_type,
+      entityType: d.entity_type,
+      entityId: d.entity_id,
+      metadata: d.metadata || {},
+      createdAt: d.created_at,
+      user: d.user ? {
+        id: d.user.id,
+        email: d.user.email,
+        displayName: d.user.display_name,
+        avatarUrl: d.user.avatar_url,
+      } : undefined,
+    }))
   })
 
   // Session Summaries
@@ -168,7 +183,26 @@ export function registerPremiumHandlers(
       .eq('project_id', remoteId)
       .order('shared_at', { ascending: false })
       .limit(50)
-    return data || []
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      projectId: d.project_id,
+      userId: d.user_id,
+      sessionSlug: d.session_slug,
+      model: d.model,
+      gitBranch: d.git_branch,
+      summary: d.summary,
+      filesChanged: d.files_changed || [],
+      durationMins: d.duration_mins,
+      startedAt: d.started_at,
+      endedAt: d.ended_at,
+      sharedAt: d.shared_at,
+      user: d.user ? {
+        id: d.user.id,
+        email: d.user.email,
+        displayName: d.user.display_name,
+        avatarUrl: d.user.avatar_url,
+      } : undefined,
+    }))
   })
 
   ipcMain.handle('premium:shareSessionSummary', async (_e, payload: {
@@ -204,7 +238,26 @@ export function registerPremiumHandlers(
       .select('*, user:users(id, email, display_name, avatar_url)')
       .single()
     if (error) throw ensureError(error)
-    return data
+    return {
+      id: data.id,
+      projectId: data.project_id,
+      userId: data.user_id,
+      sessionSlug: data.session_slug,
+      model: data.model,
+      gitBranch: data.git_branch,
+      summary: data.summary,
+      filesChanged: data.files_changed || [],
+      durationMins: data.duration_mins,
+      startedAt: data.started_at,
+      endedAt: data.ended_at,
+      sharedAt: data.shared_at,
+      user: data.user ? {
+        id: (data.user as any).id,
+        email: (data.user as any).email,
+        displayName: (data.user as any).display_name,
+        avatarUrl: (data.user as any).avatar_url,
+      } : undefined,
+    }
   })
 
   // Presence — resolve to remote project ID so all team members join the same channel
