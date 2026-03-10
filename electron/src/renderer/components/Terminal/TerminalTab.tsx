@@ -260,47 +260,85 @@ export default function TerminalTab({ terminalId, isActive, projectPath, initial
 
   // Shell-escape a file path for safe pasting into terminal
   const shellEscape = (path: string): string => {
-    // On Windows, wrap in double quotes if path contains spaces
-    if (path.includes(' ') || path.includes('(') || path.includes(')')) {
+    if (path.includes(' ') || path.includes('(') || path.includes(')') || path.includes("'")) {
       return `"${path.replace(/"/g, '\\"')}"`
     }
     return path
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.dataTransfer.types.includes('Files')) {
-      e.dataTransfer.dropEffect = 'copy'
-      setDragOver(true)
+  // ─── Drag-and-drop: use capture-phase native events so xterm.js can't swallow them
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+
+    let dragCounter = 0 // Track nested enter/leave to avoid flicker
+
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounter++
+        if (dragCounter === 1) setDragOver(true)
+      }
     }
-  }
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      const paths = files.map((f) => shellEscape(f.path)).join(' ')
-      window.api.send('terminal:write', terminalId, paths)
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'copy'
+      }
     }
-  }
+
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounter--
+      if (dragCounter <= 0) {
+        dragCounter = 0
+        setDragOver(false)
+      }
+    }
+
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounter = 0
+      setDragOver(false)
+
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      // Filter to files that have a real path (Electron sets .path for Finder drags)
+      const paths = files
+        .map((f) => (f as File & { path?: string }).path ?? '')
+        .filter((p) => p.length > 0)
+        .map(shellEscape)
+
+      if (paths.length > 0) {
+        window.api.send('terminal:write', terminalId, paths.join(' '))
+      }
+    }
+
+    // Use capture phase to intercept before xterm.js handles the event
+    wrapper.addEventListener('dragenter', onDragEnter, true)
+    wrapper.addEventListener('dragover', onDragOver, true)
+    wrapper.addEventListener('dragleave', onDragLeave, true)
+    wrapper.addEventListener('drop', onDrop, true)
+
+    return () => {
+      wrapper.removeEventListener('dragenter', onDragEnter, true)
+      wrapper.removeEventListener('dragover', onDragOver, true)
+      wrapper.removeEventListener('dragleave', onDragLeave, true)
+      wrapper.removeEventListener('drop', onDrop, true)
+    }
+  }, [terminalId])
 
   return (
     <div
+      ref={wrapperRef}
       className="h-full w-full relative"
       style={{ display: isActive ? 'block' : 'none' }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
       <div
         ref={containerRef}
