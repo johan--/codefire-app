@@ -26,7 +26,10 @@ const RecordingsView = lazy(() => import('@renderer/views/RecordingsView'))
 const ReviewsView = lazy(() => import('@renderer/views/ReviewsView'))
 
 /** Tabs that require a project path and can't run in global context */
-const PROJECT_ONLY_TABS = new Set(['Files', 'Memory', 'Rules', 'Git', 'Services', 'Visualize'])
+const PROJECT_ONLY_TABS = new Set([
+  'Activity', 'Sessions', 'Notes', 'Memory', 'Rules',
+  'Files', 'Git', 'Docs', 'Reviews',
+])
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
